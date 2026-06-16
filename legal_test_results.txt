@@ -1,0 +1,53 @@
+CUAD Legal Test Results
+Accuracy: 10.00%
+------------------------------
+[WRONG] Context: The parties shall maintain the confidentiality of ...
+   Q: What is the primary obligation of this clause?
+   Stored: Payment terms
+   Target: Confidentiality
+
+[WRONG] Context: This Agreement shall be governed by and construed ...
+   Q: What does this clause specify?
+   Stored: Non-compete
+   Target: Governing Law
+
+[WRONG] Context: Either party may terminate this Agreement upon thi...
+   Q: What is the notice period for termination?
+   Stored: Immediate
+   Target: 30 days
+
+[WRONG] Context: The Consultant shall be an independent contractor ...
+   Q: How is the Consultant classified?
+   Stored: Legal Partner
+   Target: Independent Contractor
+
+[WRONG] Context: Each party shall indemnify, defend, and hold harml...
+   Q: Which legal concept is described here?
+   Stored: Assignment
+   Target: Indemnification
+
+[WRONG] Context: If a court finds any provision of this Agreement i...
+   Q: What type of clause is this?
+   Stored: Notice
+   Target: Severability
+
+[WRONG] Context: No party may assign its rights or delegate its dut...
+   Q: What does this clause restrict?
+   Stored: Subcontracting
+   Target: Assignment
+
+[WRONG] Context: This Agreement constitutes the entire agreement be...
+   Q: Which clause prevents oral modifications from being binding?
+   Stored: Best Efforts
+   Target: Entire Agreement (Integration)
+
+[WRONG] Context: Seller warrants that the Goods will be free from d...
+   Q: What is the duration of the warranty?
+   Stored: Lifetime
+   Target: One year
+
+[CORRECT] Context: Neither party shall be liable for failure to perfo...
+   Q: Which clause handles extreme unforeseen events?
+   Stored: Force Majeure
+   Target: Force Majeure
+

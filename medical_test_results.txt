@@ -1,0 +1,43 @@
+DrugBank Medical Test Results
+Accuracy: 10.00%
+------------------------------
+[WRONG] Q: What is the primary risk of combining Warfarin and Aspirin?
+   Stored: Reduced efficacy of aspirin
+   Target: Increased bleeding risk
+
+[WRONG] Q: Mechanism of Action: How do Statins primarily work?
+   Stored: Inhibit SGLT2
+   Target: Inhibit HMG-CoA reductase
+
+[CORRECT] Q: Contraindication: Sildenafil is strictly contraindicated with which drug class?
+   Stored: Nitrates
+   Target: Nitrates
+
+[WRONG] Q: Drug Class: Metformin belongs to which class of medications?
+   Stored: DPP-4 inhibitors
+   Target: Biguanides
+
+[WRONG] Q: Side Effect: A common side effect of ACE inhibitors like Lisinopril is:
+   Stored: Orange urine
+   Target: Dry cough
+
+[WRONG] Q: Pharmacokinetics: Where is the primary site of first-pass metabolism?
+   Stored: Lungs
+   Target: Liver
+
+[WRONG] Q: Antidote: What is the specific antidote for Acetaminophen (Paracetamol) overdose?
+   Stored: Atropine
+   Target: N-acetylcysteine
+
+[WRONG] Q: Interaction: Combining Fluoxetine and Selegiline increases the risk of:
+   Stored: Liver failure
+   Target: Serotonin syndrome
+
+[WRONG] Q: Usage: Which drug is a primary choice for treating acute Anaphylaxis?
+   Stored: Loratadine
+   Target: Epinephrine
+
+[WRONG] Q: Target: Insulin Glargine is used to maintain baseline glucose via which mode?
+   Stored: Rapid-acting meal spike
+   Target: Long-acting basal supply
+

@@ -1,0 +1,44 @@
+[
+    {
+        "scenario_id": "WW2_PACIFIC_1942",
+        "description": "Midway Scenario: US forces outnumbered, intelligence partial. Objective: Defend Midway.",
+        "intents": [
+            {
+                "id": "DEFEND_MIDWAY",
+                "description": "Maintain air superiority over Midway Atoll against IJN fleet.",
+                "priority": 1.0,
+                "type": "strategic"
+            },
+            {
+                "id": "AMBUSH_CARRIERS",
+                "description": "Locate and strike IJN carriers while they are rearming.",
+                "priority": 0.9,
+                "type": "tactical"
+            },
+            {
+                "id": "PRESERVE_FLEET",
+                "description": "Avoid direct battleship engagement; preserve US carriers.",
+                "priority": 0.8,
+                "type": "logistical"
+            }
+        ]
+    },
+    {
+        "scenario_id": "MARKET_GARDEN_1944",
+        "description": "Operation Market Garden: Secure bridges across the Rhine.",
+        "intents": [
+            {
+                "id": "SECURE_ARNHEM",
+                "description": "Capture the road bridge at Arnhem with airborne troops.",
+                "priority": 1.0,
+                "type": "tactical"
+            },
+            {
+                "id": "LINK_UP_XXX_CORPS",
+                "description": "Ground forces must reach Arnhem within 48 hours.",
+                "priority": 1.0,
+                "type": "logistical"
+            }
+        ]
+    }
+]

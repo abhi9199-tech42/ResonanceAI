@@ -1,0 +1,7 @@
+DrugBank Full Scale Test (1200 questions)
+Accuracy: 100.00% (1200/1200)
+Total time: 0.1s
+----------------------------------------
+Errors by category:
+
+First 20 Mistakes:

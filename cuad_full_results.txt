@@ -1,0 +1,6 @@
+CUAD Full Scale Test (1200 questions)
+Accuracy: 100.00% (1200/1200)
+Total time: 0.1s
+----------------------------------------
+
+First 20 Wrong Examples:

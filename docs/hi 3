@@ -1,0 +1,103 @@
+URCM vs Transformer Encoder Benchmark (Full Detail)
+
+Purpose
+- Compare CPU-only runtime characteristics of two encoder backends used inside URCM:
+  - URCM Recurrent (numpy echo-state with gating and tanh dynamics)
+  - Transformer Stub (lightweight Q/K/V projections; baseline only, not a production transformer)
+
+Environment
+- OS: Windows (win32)
+- Python: 3.13.3
+- CPU-only, no GPU
+- Libraries: numpy, scipy (installed via requirements.txt)
+
+Methodology
+- Input sequence: random normal vectors, shape (seq_len, input_dim)
+- Parameters:
+  - input_dim = 24
+  - resonance_dim = 64
+  - seq_len = 64
+  - runs = 50
+- Process:
+  - Initialize encoders:
+    - Recurrent: ResonancePathEncoder(..., encoder_type='recurrent_numpy')
+    - Transformer: ResonancePathEncoder(..., encoder_type='transformer_stub')
+  - For each backend:
+    - Run encode_path(vectors) runs times
+    - Measure total elapsed time with perf_counter
+    - Compute:
+      - latency_ms = total_ms / runs
+      - throughput_ops_s = runs / total_seconds
+- Determinism:
+  - Transformer stub initializes with a fixed seed (42), recurrent weights may load trained matrices if available; otherwise random init is used.
+
+Results (Measured)
+- URCM Recurrent:
+  - latency_ms ≈ 1.580348
+  - throughput_ops_s ≈ 632.77
+- Transformer Stub:
+  - latency_ms ≈ 0.062614
+  - throughput_ops_s ≈ 15,970.87
+
+Summary Table
+Encoder,Latency (ms),Throughput (ops/s)
+URCM Recurrent,1.5803,632.77
+Transformer Stub,0.0626,15970.87
+
+Interpretation
+- The transformer stub is a very small, CPU-friendly attention projection and runs faster than the recurrent encoder on this micro-benchmark.
+- The recurrent encoder performs echo-state dynamics, gating, and tanh nonlinearity, which adds compute cost.
+- These numbers reflect speed only. They do not assert semantic quality, accuracy, or stability comparisons.
+
+Encoder Internals (Technical)
+- URCM Recurrent:
+  - State update per step: s_t = tanh(W_in·x_t + W_res·s_{t-1} + b), with last-step gating
+    - Gate: g = σ(α·||W_in·x_t|| - β·||W_res·s_{t-1}||), scales input term on final step
+  - Matrices:
+    - W_in ∈ R^{InputDim×ResDim}, W_res ∈ R^{ResDim×ResDim}, W_out ∈ R^{ResDim×InputDim}, b ∈ R^{ResDim}
+  - Decoding (not used in this benchmark): atanh inversion, W_res_inv, and snapping for stability
+- Transformer Stub:
+  - Projections: Q = X·W_q, K = X·W_k, V = X·W_v with W_q,W_k ∈ R^{InputDim×32}, W_v ∈ R^{InputDim×ResDim}
+  - Query selection: the last vector acts as the global query
+  - Scores: softmax(K·q / √32), Context: Σ w_i·V_i, Output: tanh(Context)
+
+Complexity (Approximate)
+- Recurrent (per sequence):
+  - O(SeqLen·(InputDim·ResDim + ResDim²)) for W_in and W_res products
+  - Additional scalar norms and tanh are linear in ResDim
+- Transformer Stub (per sequence):
+  - O(SeqLen·InputDim·32) for Q,K + O(SeqLen·InputDim·ResDim) for V
+  - O(SeqLen·32) for attention scores and O(SeqLen·ResDim) for weighted sum
+  - Typically faster when ResDim² dominates recurrent echo cost
+
+Memory Footprint (Matrices)
+- Recurrent:
+  - W_in: 24×64, W_res: 64×64, W_out: 64×24, b: 64
+- Transformer Stub:
+  - W_q: 24×32, W_k: 24×32, W_v: 24×64
+Note: Actual byte usage depends on dtype (float32 vs float64) and BLAS configuration.
+
+Measurement Considerations
+- Warm-up: none; repeated runs (50) average out transient costs
+- BLAS: numpy may use multi-threading; CPU scheduling and power states can affect times
+- Weights: if trained weights found (urcm_weights.pkl), recurrent may print load message and recalc W_res_inv; if mismatch, random init is used
+- Determinism: fixed seed for transformer stub, recurrent behavior depends on weight load
+
+Limitations
+- Transformer “stub” is not a full transformer architecture; it is intended as a lightweight baseline.
+- CPU-only; results can vary by hardware and Python/numpy builds.
+- Single-sequence micro-benchmark; no batching or end-to-end pipeline costs included.
+
+Reproduce Locally
+- One-liner:
+  - python -c "from urcm.core.performance import PerformanceBenchmark; b=PerformanceBenchmark(); print(b.benchmark_encoder_latency_comparison())"
+- Python snippet:
+  - from urcm.core.performance import PerformanceBenchmark
+  - b = PerformanceBenchmark()
+  - results = b.benchmark_encoder_latency_comparison(input_dim=24, resonance_dim=64, seq_len=64, runs=50)
+  - print(results)
+
+Parameter Sweeps (Optional)
+- Vary seq_len: [32, 64, 128, 256]
+- Vary resonance_dim: [32, 64, 128]
+- Record latency_ms and throughput_ops_s for each configuration to build a fuller performance curve.
