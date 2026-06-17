@@ -60,7 +60,7 @@ confidence: 0.02 → REJECT → "I'm not confident in that"
 - **Model**: 32MB (13× smaller than BERT)
 - **Hardware**: CPU-only, Raspberry Pi, phone, Jetson Nano
 - **Dependencies**: numpy, scipy (only 2 hard deps)
-- **Training**: 62 QA pairs included (expandable to any domain)
+- **Training**: 62 QA pairs included. See [TRAINING_GUIDE.md](TRAINING_GUIDE.md) for custom domains (drone, robot, vehicle, voice).
 
 ---
 
@@ -145,35 +145,28 @@ The repository ships with pre-trained weights covering kitchen, bathroom, school
 
 ### Train on your own domain
 
-```json
-[
-  [
-    "Is this obstacle safe to pass?",
-    "Yes, it's a cardboard box",
-    ["No, it's a concrete wall", "Unknown obstacle", "Too close"]
-  ],
-  [
-    "Can I grasp this object?",
-    "Yes, it's a mug with a handle",
-    ["No, too heavy", "Too slippery", "Unknown shape"]
-  ]
-]
-```
+See **[TRAINING_GUIDE.md](TRAINING_GUIDE.md)** for complete guide covering:
+
+- Dataset format and examples (drone, robot, vehicle, voice)
+- Recommended dataset sizes per domain
+- How to run training (`python train_2048.py --data my_pairs.json`)
+- Tips for good datasets (wrong answers, edge cases, balancing)
+- Domain-specific dataset recommendations (AirSim, Isaac Gym, CARLA, etc.)
+- One-shot learning at runtime
+- Pipeline overview
+
+### Quick example
 
 ```bash
-python train_2048.py --data my_domain_pairs.json
+python train_2048.py --data my_drone_pairs.json
 ```
-
-### One-shot learning at runtime
 
 ```python
 system.learn_concept_oneshot(
-    concept="mug_grasp_success",
-    definition="a mug with a handle on a flat surface, safe to grasp"
+    concept="new_obstacle_type",
+    definition="a low-hanging tree branch at 2 meters, safe to pass under"
 )
 ```
-
-No retraining needed. Recognition confidence increases automatically on future attempts.
 
 ---
 
