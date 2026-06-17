@@ -198,33 +198,23 @@ class URCMSystem:
         top_k: int = 5,
     ) -> Dict[str, Any]:
         """
-        Detect hallucination via μ-convergence reasoning: μ = ρ/χ.
+        Detect hallucination via centroid-subtracted familiarity discrimination.
 
-        Three signals converge for exact detection:
-          1. **ρ (familiarity)**: How well the query aligns with known memories.
-             ρ = max cosine similarity to any hippocampus entry, normalized [0, 1].
-             High ρ = "I recognize this" (e.g., "spoon" matches "spoon" memory).
-             Low ρ = "I don't know this" (e.g., "asdfghjkl" matches nothing).
+        Uses centroid subtraction to spread concept vectors apart (all raw vectors
+        share ~0.85 cosine common mode). Then measures three signals:
+          1. **ρ (familiarity)**: max centroid-subtracted cosine to any memory.
+          2. **χ (resistance)**: normalized angular residual in cs-space.
+          3. **specificity**: how much the best match stands out vs. other memories.
+             If several memories match equally well, the input may be ambiguous.
 
-          2. **χ (logical resistance)**: Residual after projecting query onto memories.
-             χ = L2 norm of (query - projection_onto_best_memory).
-             High χ = "this contradicts what I know" — the query has components that
-             don't fit any memory. Low χ = "this is consistent with my knowledge."
-
-          3. **Paradox detection**: If mutually exclusive concepts (e.g., "true" AND
-             "false") are simultaneously activated, χ explodes to 1e18 and μ = 0.
-
-        μ = ρ / (χ + ε). A factual input has both high ρ (familiar) and low χ
-        (no contradictions). A hallucination has either low ρ (unknown) or high χ
-        (contradicts known knowledge) — both produce low μ.
+        confidence = ρ * exp(-χ) * specificity
 
         Args:
-            text: Input text to evaluate. Must be non-empty.
+            text: Input text to evaluate.
             top_k: Number of nearest neighbors to consider.
 
         Returns:
-            Dict with 'confidence' (0-1, low = hallucination), 'nn_label',
-            'mu_value', 'rho', 'chi', 'top_k_labels'.
+            Dict with 'confidence' (0-1), 'nn_label', 'rho', 'chi', 'specificity'.
         """
         if not text or not text.strip():
             return {
@@ -238,47 +228,45 @@ class URCMSystem:
                 "warning": "Empty text — returning neutral score",
             }
 
-        if not hasattr(self, '_cache'):
-            self._cache = {}
-        cache_key = (text.strip().lower(),)
-        if cache_key in self._cache:
-            return self._cache[cache_key]
-
         freq_path = self.pipeline.process_text(text)
         state = self.encoder.get_resonance_state(freq_path)
         query_vec = state.resonance_vector
 
         if not self.hippocampus:
-            result = {
-                "confidence": 0.5,
-                "mu_value": 0.0,
-                "rho": 0.0,
-                "chi": 1e18,
-                "nn_label": "no_memory",
-                "top_k_labels": [],
-                "num_memories": 0,
+            return {
+                "confidence": 0.5, "mu_value": 0.0, "rho": 0.0, "chi": 1e18,
+                "nn_label": "no_memory", "top_k_labels": [], "num_memories": 0,
                 "warning": "No hippocampus entries loaded",
             }
-            self._cache[cache_key] = result
-            return result
 
-        # --- 1. Compute μ = ρ/χ for each hippocampus entry ---
-        q_norm = np.linalg.norm(query_vec) + 1e-9
+        # Lazy centroid of all hippocampus vectors (commonsense + questions)
+        if not hasattr(self, '_cs_centroid'):
+            all_vecs = [v for v, _, _ in self.hippocampus]
+            self._cs_centroid = np.mean(all_vecs, axis=0) if all_vecs else np.zeros_like(query_vec)
+        centroid = self._cs_centroid
+
+        def cs_cosine(v1, v2):
+            v1c = v1 - centroid
+            v2c = v2 - centroid
+            n1 = float(np.linalg.norm(v1c)) + 1e-9
+            n2 = float(np.linalg.norm(v2c)) + 1e-9
+            return float(np.dot(v1c, v2c) / (n1 * n2))
+
+        # --- 1. Compute similarities in centroid-subtracted space ---
         entries = []
-
         for mem_vec, label, meta in self.hippocampus:
-            mem_norm = np.linalg.norm(mem_vec) + 1e-9
-            cos_sim = float(np.dot(query_vec, mem_vec) / (q_norm * mem_norm))
-            rho = max(0.0, cos_sim)  # ρ = familiarity (cosine into [0,1])
+            cos_sim = cs_cosine(query_vec, mem_vec)
+            rho = max(0.0, cos_sim)
 
-            # χ = logical resistance: angular residual after aligning with memory
-            # Project query onto memory direction, compute normalized residual
-            # Normalizing by query norm makes χ independent of length (purely angular)
-            projection = (np.dot(query_vec, mem_vec) / (mem_norm * mem_norm)) * mem_vec
-            residual = query_vec - projection
-            chi = float(np.linalg.norm(residual) / (q_norm + 1e-9))
+            # χ: normalized angular residual in cs-space
+            mem_cs = mem_vec - centroid
+            q_cs = query_vec - centroid
+            q_norm_cs = float(np.linalg.norm(q_cs)) + 1e-9
+            mem_norm_cs = float(np.linalg.norm(mem_cs)) + 1e-9
+            proj = (np.dot(q_cs, mem_cs) / (mem_norm_cs * mem_norm_cs)) * mem_cs if mem_norm_cs > 1e-9 else np.zeros_like(q_cs)
+            residual = q_cs - proj
+            chi = float(np.linalg.norm(residual) / q_norm_cs)
 
-            # Paradox detection: check if query activates mutually exclusive concepts
             specific_paradox = URCMTheory.detect_paradox(query_vec, {label: mem_vec})
             if specific_paradox:
                 chi = 1e18
@@ -286,7 +274,7 @@ class URCMSystem:
             mu = URCMTheory.compute_mu(rho, chi)
             entries.append((mu, rho, chi, cos_sim, label, meta))
 
-        # --- 2. Check global paradox ---
+        # --- 2. Global paradox ---
         concept_map = {}
         if hasattr(self, 'engine') and hasattr(self.engine, 'concept_map'):
             concept_map = self.engine.concept_map
@@ -300,17 +288,21 @@ class URCMSystem:
             best_chi = 1e18
             best_mu = 0.0
 
-        # --- 3. Normalize μ to [0, 1] confidence ---
-        # μ = ρ/χ. ρ ∈ [0,1], χ ∈ [0, ∞). 
-        # Map: confidence = ρ * exp(-χ) = μ * χ * exp(-χ)
-        # This gives: close match (χ≈0, ρ≈1) → 1.0, far (χ→∞) → 0.0
-        confidence = float(best_rho * np.exp(-best_chi))
+        # --- 3. specificity: how much the best match stands out ---
+        # Higher specificity means the query is uniquely close to one memory
+        all_rhos = [e[1] for e in entries]
+        mean_rho = np.mean(all_rhos)
+        specificity = max(0.0, best_rho - mean_rho)
+
+        # --- 4. Confidence ---
+        confidence = float(best_rho * np.exp(-best_chi) * min(1.0, specificity * 5.0))
 
         result = {
             "confidence": confidence,
             "mu_value": float(best_mu),
             "rho": float(best_rho),
             "chi": float(best_chi),
+            "specificity": float(specificity),
             "raw_cosine": float(best_cos),
             "nn_label": best_label,
             "top_k_labels": [(label, round(mu, 4)) for mu, _, _, _, label, _ in top_entries],
@@ -319,8 +311,6 @@ class URCMSystem:
             "input_length": len(text.strip().split()),
             "paradox_detected": global_paradox,
         }
-        if len(self._cache) < 1024:
-            self._cache[cache_key] = result
         return result
 
     def detect_hallucination_batch(self, texts: List[str], top_k: int = 5) -> List[Dict[str, Any]]:
@@ -358,12 +348,10 @@ class URCMSystem:
         if not self.hippocampus:
             return {"confidence": 0.5, "error": "no hippocampus"}
 
-        # Compute centroid of all commonsense vectors (lazy cache)
+        # Centroid of all hippocampus vectors (lazy cache, shared with detect_hallucination)
         if not hasattr(self, '_cs_centroid'):
-            cs_vecs = [v for v, _, meta in self.hippocampus
-                       if meta.get("type") == "commonsense"]
-            self._cs_centroid = np.mean(cs_vecs, axis=0) if cs_vecs else np.zeros_like(q_vec)
-            self._cs_centroid_norm = float(np.linalg.norm(self._cs_centroid)) + 1e-9
+            all_vecs = [v for v, _, _ in self.hippocampus]
+            self._cs_centroid = np.mean(all_vecs, axis=0) if all_vecs else np.zeros_like(q_vec)
 
         centroid = self._cs_centroid
 

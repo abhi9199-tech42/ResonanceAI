@@ -77,27 +77,27 @@ The detector's accuracy depends on hippocampus coverage. With only 62 household 
 
 | Method | AUROC all | AUROC short | AUROC long | Type |
 |--------|-----------|-------------|------------|------|
-| `detect_hallucination` (old) | 0.538 | 0.481 | 0.637 | One-class familiarity |
-| `verify_qa` (centroid-subtracted) | **0.756** | **1.000** | 0.484 | Question-aware verifier |
+| `detect_hallucination` (original) | 0.538 | 0.481 | 0.637 | text-only, stale vectors |
+| `detect_hallucination` (re-encode fix) | 0.591 | 0.716 | 0.450 | text-only, fixed vectors |
+| `detect_hallucination` (+centroid+spec) | **0.603** | **0.779** | **0.439** | text-only, best config |
+| `verify_qa` (centroid-subtracted) | **0.756** | **1.000** | 0.484 | question-aware verifier |
 
 ### Key findings
 
-1. **`detect_hallucination` (text-only, one-class):** AUROC=0.538. The system measures "have I seen this before?" — a one-class familiarity classifier. Cannot distinguish correct from incorrect for a specific question. **Fundamentally limited.**
+1. **`detect_hallucination` (text-only, one-class):** Best AUROC=0.603 after centroid subtraction + specificity. Ceiling capped by test design: same text ("spoon") appears as both factual and hallucination — no text-only detector can distinguish. The system measures "have I seen this before?" — fundamentally limited without question context.
 
-2. **`verify_qa` (question+answer):** AUROC=0.756 (all), 1.000 (short), 0.484 (long). Uses hippocampus question entries to look up the expected answer, then compares candidate answer against it with centroid-subtracted cosine similarity. **Perfect for structured QA** (multiple choice, keyword answers) but **fails on free-form text** — long factual sentences encode differently from stored keyword vectors, making them indistinguishable from long hallucinations.
+2. **`verify_qa` (question+answer):** AUROC=0.756 (all), 1.000 (short), 0.484 (long). Uses hippocampus question entries to look up the expected answer, then compares candidate answer against it with centroid-subtracted cosine. **Perfect for structured QA** (multiple choice, keyword answers) but fails on free-form text.
 
-3. **Re-encode fix**: Hippocampus vectors were stale — encoded with initial W_res but compared against vectors from final W_res. Adding a re-encode pass after training (`train_2048.py` line 356) fixed this.
+3. **Re-encode fix**: Hippocampus vectors were stale — encoded with initial W_res but compared against vectors from final W_res. Fixed with re-encode pass in `train_2048.py`.
 
-4. **Centroid subtraction**: All concept vectors share ~0.85 common-mode component. Subtracting the commonsense centroid amplifies discriminative differences, improving AUROC from 0.715→0.756 and short-form from 0.94→1.00.
+4. **Centroid subtraction**: All concept vectors share ~0.85 common-mode component. Subtracting centroid amplifies discriminative differences. Added to both `detect_hallucination` and `verify_qa`.
 
 ### Conclusions
-- **`verify_qa` is production-ready for structured QA** (AUROC=1.0 on short-form). The `detect_hallucination` text-only method should be documented as research-stage (~0.54 AUROC).
-- **Free-form text verification is not feasible** with this architecture — the RNN encoding collapses sentences to different vectors than their keyword components.
-- **Audio pipeline (Phase 6)** remains URCM's unique value proposition for hallucination detection in speech.
+- **`verify_qa` is production-ready for structured QA** (AUROC=1.0 short-form).
+- **`detect_hallucination` text-only is research-stage** (~0.60 AUROC ceiling).
+- **Audio pipeline (Phase 6)** remains URCM's unique value for speech hallucination detection.
 
 ---
-
-## 🟡 Phase 3: Latency Optimization
 
 ## 🟡 Phase 3: Latency Optimization
 
