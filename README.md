@@ -247,6 +247,11 @@ Training: 62 household QA pairs (included). With 500+ domain pairs, expect impro
 
 ---
 
+**We'll build this in your language, free, under 2 weeks.**  
+Submit a GitHub issue with your stack → 1 month free use → you decide.
+
+---
+
 ## Build in Your Language
 
 We'll port the inference engine to any stack you need.
