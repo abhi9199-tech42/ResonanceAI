@@ -247,21 +247,47 @@ Training: 62 household QA pairs (included). With 500+ domain pairs, expect impro
 
 ---
 
+## Build in Your Language
+
+We'll port the inference engine to any stack you need.
+
+| Target | Why | Typical Speed |
+|--------|-----|--------------|
+| **C** | Robotics, drones, bare-metal ARM | <5ms (40× faster) |
+| Rust | Safety-critical systems | <5ms |
+| Zig | Embedded, cross-compilation | <5ms |
+| C++ | ROS integration, real-time | <5ms |
+| WebAssembly | Browser agents, edge | <10ms |
+| Your choice | Tell us your stack | — |
+
+**C showcase** (robotics standard):
+
+```c
+// Full inference: question + answer → confidence in <5ms
+float verify_qa(const char* question, const char* answer) {
+    float state[2048] = {0};
+    for (int t = 0; t < encode(answer, state); t++)
+        matvec(W_res, state, tanh);
+    return cosine(state, hippocampus[lookup(question)]);
+}
+```
+
+Training stays in Python. Inference in your language.  
+Open source for researchers. Custom optimization for production.
+
+**Submit a GitHub issue with label `optimization-request`.**
+
 ## Custom Optimization
 
-We offer custom optimization for your specific hardware:
+We optimize inference for your specific hardware:
 
 | Device | Optimization | Gain |
 |--------|-------------|------|
 | Hearing aid | 32MB → 12MB, 200ms → 80ms | 60% smaller, 2.5× faster |
 | Earbud | INT8 quantization | 2× battery life |
-| Drone | Onboard sub-100ms inference | Real-time decisions |
+| Drone | Onboard <5ms C inference | Real-time decisions |
 | Smartwatch | 32MB → 8MB | 4× smaller |
 | Medical device | FDA compliance logging | Regulatory ready |
-
-Open source for researchers. Custom optimization for production.
-
-Submit a GitHub issue with label `optimization-request`.
 
 ---
 
