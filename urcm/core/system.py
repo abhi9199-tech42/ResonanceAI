@@ -327,6 +327,110 @@ class URCMSystem:
         """Process multiple texts, returns list of results."""
         return [self.detect_hallucination(t, top_k=top_k) for t in texts]
 
+    def verify_qa(self, question: str, answer: str) -> Dict[str, Any]:
+        """
+        Verify if an answer is correct for a given question using hippocampus lookup.
+
+        Pipeline:
+        1. Encode question, find the best-matching question entry in hippocampus
+        2. Retrieve the expected answer label from that entry
+        3. Find the expected answer vector in hippocampus
+        4. Encode the candidate answer, compare against expected answer vector
+        5. Combine question-match certainty + answer correctness into a single confidence
+
+        Uses centroid subtraction to amplify discriminative signal:
+          All concept vectors share a large common-mode component (~0.85 avg cosine).
+          Subtracting the commonsense centroid removes this and amplifies relative
+          differences, improving discrimination between similar concepts.
+        """
+        if not question or not answer:
+            return {"confidence": 0.5, "error": "empty input"}
+
+        # Encode question and answer
+        q_freq = self.pipeline.process_text(question)
+        q_state = self.encoder.get_resonance_state(q_freq)
+        q_vec = q_state.resonance_vector
+
+        a_freq = self.pipeline.process_text(answer)
+        a_state = self.encoder.get_resonance_state(a_freq)
+        a_vec = a_state.resonance_vector
+
+        if not self.hippocampus:
+            return {"confidence": 0.5, "error": "no hippocampus"}
+
+        # Compute centroid of all commonsense vectors (lazy cache)
+        if not hasattr(self, '_cs_centroid'):
+            cs_vecs = [v for v, _, meta in self.hippocampus
+                       if meta.get("type") == "commonsense"]
+            self._cs_centroid = np.mean(cs_vecs, axis=0) if cs_vecs else np.zeros_like(q_vec)
+            self._cs_centroid_norm = float(np.linalg.norm(self._cs_centroid)) + 1e-9
+
+        centroid = self._cs_centroid
+
+        # Centroid-subtracted cosine: remove common-mode from all vectors
+        def cs_cosine(v1, v2):
+            v1c = v1 - centroid
+            v2c = v2 - centroid
+            n1 = float(np.linalg.norm(v1c)) + 1e-9
+            n2 = float(np.linalg.norm(v2c)) + 1e-9
+            return float(np.dot(v1c, v2c) / (n1 * n2))
+
+        # Step 1: Find best-matching question entry
+        best_q_sim = -1.0
+        best_q_label = None
+        best_q_text = ""
+        for mem_vec, label, meta in self.hippocampus:
+            if meta.get("type") != "question":
+                continue
+            cos = cs_cosine(q_vec, mem_vec)
+            if cos > best_q_sim:
+                best_q_sim = cos
+                best_q_label = label
+                best_q_text = meta.get("text", "")
+
+        # Step 2: Find the expected answer vector
+        expected_vec = None
+        for mem_vec, label, meta in self.hippocampus:
+            if label == best_q_label and meta.get("type") == "commonsense":
+                expected_vec = mem_vec
+                break
+
+        # Step 3: Compare candidate answer against expected answer
+        a_match = 0.0
+        if expected_vec is not None:
+            a_match = cs_cosine(a_vec, expected_vec)
+            a_match = max(0.0, a_match)
+
+        # Step 4: Check alternative answers
+        alternatives = []
+        for mem_vec, label, meta in self.hippocampus:
+            if meta.get("type") != "commonsense":
+                continue
+            if label == best_q_label:
+                continue
+            cos = cs_cosine(a_vec, mem_vec)
+            alternatives.append((label, cos))
+        alternatives.sort(key=lambda x: x[1], reverse=True)
+        top_alt_sim = alternatives[0][1] if alternatives else 0.0
+
+        # Step 5: Compute confidence
+        q_certainty = max(0.0, min(1.0, (best_q_sim - 0.3) / 0.5)) if best_q_sim > 0.3 else 0.0
+        ambiguity_penalty = max(0.0, top_alt_sim - a_match)
+        a_certainty = max(0.0, min(1.0, a_match - ambiguity_penalty * 0.5))
+        confidence = q_certainty * a_certainty
+
+        return {
+            "confidence": round(confidence, 4),
+            "question": question,
+            "answer": answer,
+            "expected_answer": best_q_label,
+            "q_match": round(best_q_sim, 4),
+            "q_certainty": round(q_certainty, 4),
+            "a_match": round(a_match, 4),
+            "a_certainty": round(a_certainty, 4),
+            "top_alternative": (alternatives[0] if alternatives else (None, 0.0)),
+        }
+
     def maintain_spectral(self, max_sigma: float = 1.5):
         W = self.encoder.W_res
         Wc = self.maintenance.spectral_clip(W, max_sigma=max_sigma)

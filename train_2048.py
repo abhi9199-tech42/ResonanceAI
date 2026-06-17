@@ -356,6 +356,19 @@ def main():
     W_res, hippocampus = train_hebbian(pipeline, rpenc, mem, W_res, hippocampus)
     rpenc.W_res = W_res
 
+    # 2b. Re-encode all hippocampus entries with final W_res
+    # Without this, stored vectors were encoded with INITIAL W_res (before deposits)
+    # but the saved W_res is the final (post-deposit) version — mismatch causes
+    # re-encoded queries to give cosine ~0.12 vs stored vectors.
+    print(f"Re-encoding {len(hippocampus)} hippocampus entries with final W_res...")
+    new_hippocampus = []
+    for mem_vec, label, meta in hippocampus:
+        text = meta.get("text", label)
+        vec = encode(pipeline, rpenc, text)
+        new_hippocampus.append((vec, label, meta))
+    hippocampus = new_hippocampus
+    print(f"  Done — {len(hippocampus)} entries re-encoded.")
+
     # Recompute inverse
     print("Computing W_res_inv...")
     try:

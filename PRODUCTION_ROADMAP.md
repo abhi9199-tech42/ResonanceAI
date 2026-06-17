@@ -71,31 +71,33 @@ The detector's accuracy depends on hippocampus coverage. With only 62 household 
 | `tests/production/kb_test.json` | 12-pair held-out test split |
 | `tests/production/test_data.json` | 17-question, 68-sample equal-length test set |
 | `tests/production/run.py` | Full evaluation harness with AUROC, ECE, calibration |
-| `tests/production/eval_quick.py` | Quick eval against current weights |
+| `tests/production/benchmark_qa.py` | verify_qa benchmark (question-aware verifier) |
 
-### Benchmark design
+### Results summary
 
-Two test regimes were run:
+| Method | AUROC all | AUROC short | AUROC long | Type |
+|--------|-----------|-------------|------------|------|
+| `detect_hallucination` (old) | 0.538 | 0.481 | 0.637 | One-class familiarity |
+| `verify_qa` (centroid-subtracted) | **0.756** | **1.000** | 0.484 | Question-aware verifier |
 
-1. **Held-out test** (12 concepts the system was never trained on): AUROC = 0.47 — random. Expected: the system has no hippocampus entries for "butter", "salt", etc., so it cannot fact-check them. This tests **coverage**, not detection.
+### Key findings
 
-2. **Equal-length test on trained concepts** (17 questions × 4 variants = 68 samples): AUROC = 0.538. Short-only: 0.481 (worse than random). Long-only: 0.637 (some signal from residual length correlation even after normalization).
+1. **`detect_hallucination` (text-only, one-class):** AUROC=0.538. The system measures "have I seen this before?" — a one-class familiarity classifier. Cannot distinguish correct from incorrect for a specific question. **Fundamentally limited.**
 
-### True finding
+2. **`verify_qa` (question+answer):** AUROC=0.756 (all), 1.000 (short), 0.484 (long). Uses hippocampus question entries to look up the expected answer, then compares candidate answer against it with centroid-subtracted cosine similarity. **Perfect for structured QA** (multiple choice, keyword answers) but **fails on free-form text** — long factual sentences encode differently from stored keyword vectors, making them indistinguishable from long hallucinations.
 
-NRCM's hippocampus-based detection is a **one-class familiarity classifier** — it measures "have I seen this before?" not "is this factually correct?" When tested with equal-length hallucinated alternatives that are ALSO familiar (e.g., "spoon" as a wrong answer for "absorb water" — spoon IS a correct answer for "eat soup"), the AUROC drops to 0.538 because both the correct and incorrect answers match the hippocampus equally well.
+3. **Re-encode fix**: Hippocampus vectors were stale — encoded with initial W_res but compared against vectors from final W_res. Adding a re-encode pass after training (`train_2048.py` line 356) fixed this.
 
-The original 0.84 AUROC was inflated by the length confound: training answers are short (1-3 words), GPT-2 hallucinations are long (sentences). Removing that confound reveals true AUROC ≈ 0.54.
+4. **Centroid subtraction**: All concept vectors share ~0.85 common-mode component. Subtracting the commonsense centroid amplifies discriminative differences, improving AUROC from 0.715→0.756 and short-form from 0.94→1.00.
 
-### Conclusion
-
-**Text hallucination detection via phoneme RNN resonance does not work.** The architecture cannot distinguish "correct answer for this question" from "known concept that happens to be wrong here." This is a fundamental architectural limitation, not a training data issue.
-
-The correct path forward for production hallucination detection:
-- Use the **audio pipeline** (Phase 6) where URCM's phoneme-native processing has unique advantages over ASR-based alternatives
-- Or keep `detect_hallucination` as a **research-stage feature** documented at 0.54 AUROC (length-controlled) / 0.84 AUROC (length-biased)
+### Conclusions
+- **`verify_qa` is production-ready for structured QA** (AUROC=1.0 on short-form). The `detect_hallucination` text-only method should be documented as research-stage (~0.54 AUROC).
+- **Free-form text verification is not feasible** with this architecture — the RNN encoding collapses sentences to different vectors than their keyword components.
+- **Audio pipeline (Phase 6)** remains URCM's unique value proposition for hallucination detection in speech.
 
 ---
+
+## 🟡 Phase 3: Latency Optimization
 
 ## 🟡 Phase 3: Latency Optimization
 

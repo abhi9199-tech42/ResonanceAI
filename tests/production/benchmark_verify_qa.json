@@ -1,0 +1,10 @@
+{
+  "auroc_all": 0.7560553633217993,
+  "auroc_short": 1.0,
+  "auroc_long": 0.4844290657439446,
+  "mean_conf_factual": 0.6006735294117647,
+  "mean_conf_hallucination": 0.1882529411764706,
+  "correct_count": 48,
+  "total": 68,
+  "method": "verify_qa"
+}
