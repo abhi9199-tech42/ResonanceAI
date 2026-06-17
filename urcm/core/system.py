@@ -33,7 +33,7 @@ class URCMSystem:
     The main URCM System class.
 
     Integrates all sub-systems to provide a complete frequency-based reasoning pipeline.
-    Uses Wave Physics Merger for O(D^{1/22}) complexity dynamics.
+    Uses Wave Physics Merger for O(B*D) complexity dynamics.
     """
 
     def __init__(
@@ -58,7 +58,7 @@ class URCMSystem:
         self.pipeline = PhonemeFrequencyPipeline(frequency_dim=frequency_dim)
         self.optimized_set = OptimizedPhonemeSet(vector_dimension=frequency_dim)
 
-        # 2. Encoding (Wave Physics Merger for O(D^{1/22}) dynamics)
+        # 2. Encoding (Wave Physics Merger for O(B*D) dynamics)
         self.encoder = ResonancePathEncoder(
             input_dim=frequency_dim,
             resonance_dim=resonance_dim,

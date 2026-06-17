@@ -1,11 +1,11 @@
 """
 Resonance Path Encoder System.
 
-Converts temporal frequency paths into stable resonance states.
-Default: NumPy recurrent backend with Wave Physics Merger for O(D^{1/22}) dynamics.
+Converts temporal frequency paths into resonance states.
+Default: NumPy recurrent backend with Wave Physics Merger for O(B*D) dynamics.
 
 Wave Physics Integration:
-  - run_dynamics_until_stable uses wave superposition instead of O(D^2) matrix ops
+  - run_dynamics_until_stable uses wave decomposition instead of O(D^2) matrix ops
   - Energy computation uses wave-domain decomposition
   - Error correction via destructive interference of noise
 """
@@ -26,8 +26,8 @@ class ResonancePathEncoder:
     """
     Encodes frequency paths into resonance states using temporal processing.
 
-    Uses Wave Physics Merger for O(D^{1/22}) complexity in dynamics,
-    replacing O(D^2) matrix operations with wave superposition.
+    Uses Wave Physics Merger for O(B*D) complexity in dynamics,
+    replacing O(D^2) matrix operations with 32-band decomposition.
     """
 
     def __init__(
@@ -46,7 +46,7 @@ class ResonancePathEncoder:
             resonance_dim: Dimensionality of the output resonance state.
             encoder_type: Type of encoder backend.
             fast_mode: Use transformer stub for fast encoding.
-            use_wave_dynamics: Enable Wave Physics Merger for O(D^{1/22}) dynamics.
+            use_wave_dynamics: Enable Wave Physics Merger for O(B*D) dynamics.
         """
         self.input_dim = input_dim
         self.resonance_dim = resonance_dim
@@ -59,7 +59,7 @@ class ResonancePathEncoder:
         self.safety = SafetyGovernor(resonance_dim=self.resonance_dim, max_spectral_radius=0.99)
         self.safety.lock_kernel()
 
-        # Initialize Wave Physics Merger for O(D^{1/22}) dynamics
+        # Initialize Wave Physics Merger for O(B*D) dynamics
         if self.use_wave_dynamics:
             self.wave = WavePhysicsMerger(
                 resonance_dim=self.resonance_dim,
@@ -320,7 +320,7 @@ class ResonancePathEncoder:
     def get_global_energy(self, state: np.ndarray, codebook_vectors: Optional[Dict[str, np.ndarray]] = None) -> float:
         """
         Calculates the Canonical Energy of a state.
-        Uses wave-domain decomposition for O(D^{1/22}) complexity.
+        Uses wave-domain decomposition for O(B*D) complexity.
 
         E(s) = min over codebook of ||wave_decode(s) - vec||
 
@@ -492,9 +492,9 @@ class ResonancePathEncoder:
         """
         Runs Autonomous Dynamics (Thinking) until the thought stabilizes.
 
-        Uses Wave Physics Merger for O(D^{1/22}) complexity:
-        - Wave superposition replaces O(D^2) matrix multiply
-        - FFT convolution for wave evolution
+        Uses Wave Physics Merger for O(B*D) complexity:
+        - Wave decomposition replaces O(D^2) matrix multiply
+        - Band-space evolution for fast dynamics
         - Phase synchronization for convergence
 
         Includes 'Metacognitive Frustration':
@@ -550,7 +550,7 @@ class ResonancePathEncoder:
                             return current_state, t, energy_history
                         return current_state, t, energy
 
-            # 3. Dynamics Step — O(D^{1/22}) via Wave Physics
+            # 3. Dynamics Step — O(B*D) via Wave Physics
             if self.use_wave_dynamics:
                 current_state = self._wave_dynamics_step(
                     current_state, temperature, noise_injection, t, max_steps

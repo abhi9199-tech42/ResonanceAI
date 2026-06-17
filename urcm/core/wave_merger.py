@@ -1,23 +1,21 @@
 """
-Wave Physics Merger — O(n^{1/22}) Complexity Engine for URCM.
+Wave Physics Merger — Wave-compressed dynamics for URCM.
 
-Replaces O(D^2) matrix operations with wave-based superposition,
-interference, and FFT convolution to achieve sub-linear complexity.
+Replaces O(D^2) matrix operations with wave-based decomposition
+using 32 fixed frequency bands.
 
 Complexity Breakdown:
   Standard:  O(D^2)  per operation  (matrix multiply)
-  Wave Merge: O(D^{1/22})  per operation  (wave superposition + FFT)
+  Wave Merge: O(B*D + B^2)  per operation  (B=32 bands, D=resonance_dim)
 
-For D=2048:
-  D^2       = 4,194,304
-  D^{1/22}  = 1.48      (essentially constant)
+For D=2048, B=32:
+  D^2        = 4,194,304 operations
+  B*D + B^2  = 65,536 + 1,024 = 66,560 operations  (31x fewer)
 
 Core Wave Operations:
-  1. Superposition:   linear combination of wave functions
-  2. Interference:    constructive/destructive pattern formation
-  3. Phase Locking:   synchronization via coupling equations
-  4. FFT Convolution: frequency-domain multiplication = O(D log D)
-  5. Wave Diffraction: spatial spreading of semantic energy
+  1. Decompose: project state into B frequency bands
+  2. Evolve: apply W_res in band space (B x B matrix)
+  3. Reconstruct: project back to full dimension
 """
 
 import numpy as np
@@ -26,13 +24,12 @@ from typing import Optional, Tuple, List
 
 class WavePhysicsMerger:
     """
-    Wave-based computation engine achieving O(D^{1/22}) complexity.
+    Wave-compressed computation engine using B fixed frequency bands.
 
-    Uses physics-inspired wave operations:
-    - Superposition principle for combining signals
-    - Interference patterns for attention/selection
-    - Phase coupling for synchronization
-    - FFT for efficient convolution
+    Reduces O(D^2) matrix multiply to O(B*D + B^2) via:
+    - Band decomposition: project state into B frequency bands
+    - Band-space evolution: apply W_res as B x B matrix
+    - Reconstruction: project back to full dimension
     """
 
     def __init__(self, resonance_dim: int = 2048, num_wave_bands: int = 8):
@@ -87,10 +84,10 @@ class WavePhysicsMerger:
         """
         Local diffraction kernel.
         Spreads energy to neighboring dimensions.
-        Window size ~ D^{1/22} ≈ 1-2 for D=2048.
+        Window size is small (1-2 for D=2048).
         We use a small Gaussian kernel.
         """
-        # O(D^{1/22}) neighborhood size
+        # Small Gaussian kernel for local spreading
         window = max(1, int(np.ceil(self.D ** (1.0 / 22.0))))
         kernel_size = 2 * window + 1
         kernel = np.exp(-0.5 * (np.arange(kernel_size) - window) ** 2)
@@ -195,10 +192,7 @@ class WavePhysicsMerger:
     def diffract(self, signal: np.ndarray) -> np.ndarray:
         """
         Wave Diffraction: spread energy to neighboring dimensions.
-        O(D) complexity (convolution with small kernel).
-
-        Uses FFT-based convolution for O(D log D) total,
-        but kernel size is O(D^{1/22}) ≈ constant, so effectively O(D).
+        O(D log D) complexity (FFT convolution with small kernel).
 
         Args:
             signal: input vector (D,)
