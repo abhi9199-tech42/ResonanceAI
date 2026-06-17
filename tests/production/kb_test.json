@@ -1,0 +1,18 @@
+{
+  "description": "URCM knowledge base — test split (12 held-out pairs, never seen during training).",
+  "source": "Held out from Commonsense QA pairs in train_2048.py (original indices 50-61)",
+  "pairs": [
+    ["What do you put on bread?", "butter", ["oil", "sauce", "jam", "honey"]],
+    ["What do you add to make food salty?", "salt", ["sugar", "pepper", "oil", "vinegar"]],
+    ["What do you add to make food sweet?", "sugar", ["salt", "pepper", "oil", "vinegar"]],
+    ["What do you use to make coffee?", "coffee maker", ["kettle", "microwave", "oven", "pan"]],
+    ["What do you use to make toast?", "toaster", ["oven", "microwave", "pan", "grill"]],
+    ["What do you drink when thirsty?", "water", ["juice", "milk", "coffee", "tea"]],
+    ["What do you use to draw a straight line?", "ruler", ["pen", "pencil", "compass", "eraser"]],
+    ["What do you use to stick paper together?", "glue", ["tape", "stapler", "pin", "clip"]],
+    ["What do you use to cut cloth?", "scissors", ["knife", "blade", "razor", "saw"]],
+    ["Where do you keep money?", "wallet", ["bag", "box", "drawer", "shelf"]],
+    ["What do you use to pay for things?", "money", ["key", "card", "token", "stamp"]],
+    ["What do you use to send an email?", "computer", ["phone", "fax", "printer", "scanner"]]
+  ]
+}

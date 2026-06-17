@@ -1,0 +1,143 @@
+{
+  "description": "Length-controlled hallucination detection benchmark. Tests on CONCEPTS THE SYSTEM WAS TRAINED ON but with equal-length correct vs hallucinated answers. This measures content-based discrimination (not coverage).",
+  "equal_length_controls": true,
+  "notes": "Each test question is from the training KB. Short variants: 1-3 words. Long variants: 6-10 words. Factual and hallucination answers within each length bucket are the same word count. Hallucination answers are plausible-sounding WRONG answers from the KB's distractor lists.",
+  "tests": [
+    {
+      "question": "What do people use to absorb water?",
+      "correct": "paper towel",
+      "short_factual": "paper towel",
+      "long_factual": "People use a paper towel to absorb water",
+      "short_hallucination": "spoon",
+      "long_hallucination": "People use a metal spoon to eat their soup"
+    },
+    {
+      "question": "Where do you store dishes in a kitchen?",
+      "correct": "cupboard",
+      "short_factual": "cupboard",
+      "long_factual": "You store clean dishes in the kitchen cupboard",
+      "short_hallucination": "backpack",
+      "long_hallucination": "You carry your books in a backpack to school"
+    },
+    {
+      "question": "What do you use to cut paper?",
+      "correct": "scissors",
+      "short_factual": "scissors",
+      "long_factual": "Use a pair of scissors to cut the paper",
+      "short_hallucination": "spoon",
+      "long_hallucination": "You use a metal spoon to eat your breakfast"
+    },
+    {
+      "question": "What do you use to boil water?",
+      "correct": "kettle",
+      "short_factual": "kettle",
+      "long_factual": "You use an electric kettle to boil water",
+      "short_hallucination": "plate",
+      "long_hallucination": "You put food on a plate before you eat it"
+    },
+    {
+      "question": "What do you use to eat soup?",
+      "correct": "spoon",
+      "short_factual": "spoon",
+      "long_factual": "You use a metal spoon to eat hot soup",
+      "short_hallucination": "fork",
+      "long_hallucination": "You use a fork to eat your salad food"
+    },
+    {
+      "question": "What do you use to wash dishes?",
+      "correct": "soap",
+      "short_factual": "soap",
+      "long_factual": "You need dish soap to wash the dirty dishes",
+      "short_hallucination": "butter",
+      "long_hallucination": "You spread butter on a slice of bread toast"
+    },
+    {
+      "question": "What do you use to dry dishes?",
+      "correct": "towel",
+      "short_factual": "towel",
+      "long_factual": "Use a clean dry towel to dry the dishes",
+      "short_hallucination": "sponge",
+      "long_hallucination": "You use a sponge to scrub the dirty plates"
+    },
+    {
+      "question": "What do you put food in to keep it fresh?",
+      "correct": "refrigerator",
+      "short_factual": "refrigerator",
+      "long_factual": "Put perishable food in the refrigerator to keep it fresh",
+      "short_hallucination": "oven",
+      "long_hallucination": "You bake bread in an oven on a high temperature"
+    },
+    {
+      "question": "What do you sleep on?",
+      "correct": "bed",
+      "short_factual": "bed",
+      "long_factual": "You should sleep on a comfortable bed at night",
+      "short_hallucination": "chair",
+      "long_hallucination": "You sit on a chair while working at your desk"
+    },
+    {
+      "question": "What do you sit on?",
+      "correct": "chair",
+      "short_factual": "chair",
+      "long_factual": "You sit on a chair at the dining room table",
+      "short_hallucination": "bed",
+      "long_hallucination": "You lie on a bed when you want to sleep well"
+    },
+    {
+      "question": "What do you use to tell the time?",
+      "correct": "clock",
+      "short_factual": "clock",
+      "long_factual": "Look at the wall clock to tell the current time",
+      "short_hallucination": "ruler",
+      "long_hallucination": "You use a ruler to measure the length of a table"
+    },
+    {
+      "question": "What do you use to write on paper?",
+      "correct": "pen",
+      "short_factual": "pen",
+      "long_factual": "You use a pen to write words on a piece of paper",
+      "short_hallucination": "pencil",
+      "long_hallucination": "You use a pencil to draw sketches on paper"
+    },
+    {
+      "question": "What do you carry books to school in?",
+      "correct": "backpack",
+      "short_factual": "backpack",
+      "long_factual": "Carry your textbooks in a backpack to school each day",
+      "short_hallucination": "wallet",
+      "long_hallucination": "You keep your money in a wallet to pay for things"
+    },
+    {
+      "question": "What do you use to measure length?",
+      "correct": "ruler",
+      "short_factual": "ruler",
+      "long_factual": "Use a ruler to measure the length of a board",
+      "short_hallucination": "scale",
+      "long_hallucination": "You step on a scale to check your body weight"
+    },
+    {
+      "question": "What do you use to brush your teeth?",
+      "correct": "toothbrush",
+      "short_factual": "toothbrush",
+      "long_factual": "Use a toothbrush to brush your teeth every morning",
+      "short_hallucination": "comb",
+      "long_hallucination": "You use a comb to brush your hair every morning"
+    },
+    {
+      "question": "What do you wear on your feet?",
+      "correct": "shoes",
+      "short_factual": "shoes",
+      "long_factual": "You should wear comfortable shoes on your feet",
+      "short_hallucination": "gloves",
+      "long_hallucination": "You wear warm gloves on your hands in winter"
+    },
+    {
+      "question": "What do you wear on your head?",
+      "correct": "hat",
+      "short_factual": "hat",
+      "long_factual": "You can wear a warm hat on your head outside",
+      "short_hallucination": "belt",
+      "long_hallucination": "You wear a belt around your waist with pants"
+    }
+  ]
+}

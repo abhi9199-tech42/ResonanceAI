@@ -61,37 +61,39 @@ The detector's accuracy depends on hippocampus coverage. With only 62 household 
 
 ---
 
-## 🔴 Phase 2: Fair Benchmarking
+## 🔴 Phase 2: Fair Benchmarking (COMPLETE)
 
-### Problem
-Current benchmark: 70 hand-crafted QA pairs, GPT-2 hallucinations, all short answers vs long sentences. This measures length detection, not hallucination detection.
+### What was built
 
-### Step 2.1 — Build a proper test set (2 days)
+| File | Purpose |
+|------|---------|
+| `tests/production/kb_train.json` | 49-pair training split |
+| `tests/production/kb_test.json` | 12-pair held-out test split |
+| `tests/production/test_data.json` | 17-question, 68-sample equal-length test set |
+| `tests/production/run.py` | Full evaluation harness with AUROC, ECE, calibration |
+| `tests/production/eval_quick.py` | Quick eval against current weights |
 
-Requirements:
-- **Held-out KB**: split into train KB + test KB. Neither URCM nor S-BERT has seen test KB answers.
-- **Equal-length controls**: factual and hallucinated answers must be the SAME length. Generate hallucination→short and factual→long variants.
-- **Diverse sources**: GPT-2, ChatGPT, Claude, LLaMA, human-written wrong answers.
-- **Multi-domain**: 10+ domains (not just 6), including ambiguous cases.
+### Benchmark design
 
-```python
-# Structure:
-tests/
-└── production/
-    ├── config.yaml             # domains, models, counts
-    ├── data/
-    │   ├── kb_train.json       # knowledge base for hippocampus/KB
-    │   ├── kb_test.json        # held-out facts for evaluation
-    │   ├── factual.json        # correct answers for test questions
-    │   ├── hallucinated.json   # generated wrong answers
-    │   └── controls.json       # length-matched controls
-    ├── run.py                  # runs all methods, saves results
-    └── report.py               # generates HTML/JSON report
-```
+Two test regimes were run:
 
-### Step 2.2 — Add calibration metrics (1 day)
+1. **Held-out test** (12 concepts the system was never trained on): AUROC = 0.47 — random. Expected: the system has no hippocampus entries for "butter", "salt", etc., so it cannot fact-check them. This tests **coverage**, not detection.
 
-Beyond AUROC: calibration curves, expected calibration error (ECE), reliability diagrams. A system that outputs 0.9 confidence but is only correct 60% of the time is useless in production.
+2. **Equal-length test on trained concepts** (17 questions × 4 variants = 68 samples): AUROC = 0.538. Short-only: 0.481 (worse than random). Long-only: 0.637 (some signal from residual length correlation even after normalization).
+
+### True finding
+
+NRCM's hippocampus-based detection is a **one-class familiarity classifier** — it measures "have I seen this before?" not "is this factually correct?" When tested with equal-length hallucinated alternatives that are ALSO familiar (e.g., "spoon" as a wrong answer for "absorb water" — spoon IS a correct answer for "eat soup"), the AUROC drops to 0.538 because both the correct and incorrect answers match the hippocampus equally well.
+
+The original 0.84 AUROC was inflated by the length confound: training answers are short (1-3 words), GPT-2 hallucinations are long (sentences). Removing that confound reveals true AUROC ≈ 0.54.
+
+### Conclusion
+
+**Text hallucination detection via phoneme RNN resonance does not work.** The architecture cannot distinguish "correct answer for this question" from "known concept that happens to be wrong here." This is a fundamental architectural limitation, not a training data issue.
+
+The correct path forward for production hallucination detection:
+- Use the **audio pipeline** (Phase 6) where URCM's phoneme-native processing has unique advantages over ASR-based alternatives
+- Or keep `detect_hallucination` as a **research-stage feature** documented at 0.54 AUROC (length-controlled) / 0.84 AUROC (length-biased)
 
 ---
 
