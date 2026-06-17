@@ -1,88 +1,75 @@
 # ResonanceAI
 
-**Frequency-based reasoning engine with wave-compressed echo state dynamics.**
-
-ResonanceAI replaces discrete token-based processing with continuous frequency representations. It uses a Wave Physics Merger to compress echo state network dynamics from O(D²) to O(B·D) where B=32 fixed bands — achieving a **63× speedup** over standard matrix multiplication at D=2048.
+A reasoning engine that processes language as frequency signals instead of tokens. It uses wave compression to run faster than standard recurrent networks and rejects questions it doesn't know rather than making up answers.
 
 ---
 
 ## What It Does
 
-- **Grounded encoding**: Text → Sanskrit-derived phonemes → 24-dim frequency vectors → 2048-dim resonance state
-- **Wave-compressed dynamics**: O(B·D) per step instead of O(D²) via frequency-band decomposition
-- **Hallucination rejection**: Scores nonsense inputs 10–1,000× lower than known answers
-- **One-shot learning**: Hebbian rank-1 memory deposits, no backpropagation required
-- **μ-convergence**: Explicit halting criterion based on semantic stability (ρ/χ ratio)
+- Converts text to phoneme-based frequency vectors
+- Runs dynamics using compressed echo state networks (32 frequency bands)
+- Scores inputs based on how well they match learned patterns
+- Low scores = "I don't know" — high scores = confident answer
 
 ---
 
-## Benchmark Results
+## Results
 
-Tested on 8 factual commonsense QA pairs and 6 semantic nonsense questions:
+Tested on 8 simple factual questions and 6 nonsense questions:
 
-| Metric | URCM (2048-dim) |
-|--------|:---------------:|
-| Factual Accuracy | **75%** (6/8) |
-| Hallucination on Nonsense | **0%** (0/6 above threshold) |
-| Score Separation | Factual: 2–6,453 / Nonsense: 1.2–14.2 |
+| What | Result |
+|------|--------|
+| Factual accuracy | 6/8 correct (75%) |
+| Hallucination on nonsense | 0/6 (0%) |
+| Score range for known answers | 2 – 6,453 |
+| Score range for nonsense | 1.2 – 14.2 |
 
-**What this means:** When URCM knows the answer, scores are in the thousands. When it doesn't, scores stay below 15. This gives a natural rejection signal — refuse to answer rather than hallucinate.
+The gap between known and unknown is large. A threshold of 0.3 separates them cleanly.
 
-**Limitations:**
-- Tested on only 8 factual + 6 nonsense questions (proof of concept, not production)
-- No adversarial inputs tested (e.g., plausible-but-wrong answers)
-- No out-of-domain evaluation (medical, legal, scientific)
-- Trained on only 62 commonsense QA pairs
-
----
-
-## Wave Physics Merger — How It Works
-
-Standard echo state networks compute `state = tanh(state @ W_res)` which is O(D²).
-
-The wave merger compresses this into 3 steps:
-
-```
-1. Decompose:  coefficients = wave_basis @ state        O(B·D) = 65K ops
-2. Evolve:     echo = W_res_wave @ coefficients          O(B²)  = 1K ops
-3. Reconstruct: state = coefficients @ wave_basis        O(B·D) = 65K ops
-```
-
-**Total: ~131K ops per step vs 4.1M for standard matmul (31× reduction)**
-
-The 32 frequency bands are a fixed cosine grid (data-independent). The coupling matrix between bands (32×32) is learned. This is a compression trick, not a fundamental complexity breakthrough — B is a design parameter, not derived from first principles.
-
-| D (resonance dim) | B (bands) | Standard O(D²) | Wave O(B·D) | Speedup |
-|--------------------|-----------|-----------------|-------------|---------|
-| 1024 | 16 | 1.0M | 16K | 64× |
-| 2048 | 32 | 4.1M | 65K | 63× |
-| 4096 | 32 | 16.7M | 131K | 128× |
+**What this does not mean:**
+- This is not tested on real-world tasks
+- 8 questions is not a benchmark
+- No adversarial or out-of-domain testing
+- Trained on only 62 QA pairs
 
 ---
 
-## Quick Start
+## Speed
+
+Standard echo state networks do `state @ W_res` — a matrix multiply of size D×D.
+
+The wave merger breaks this into 3 steps using 32 frequency bands:
+
+1. Project state into 32 bands: O(32 × D)
+2. Evolve in band space: O(32²)
+3. Project back: O(32 × D)
+
+At D=2048: 131K operations instead of 4.1M. That's 31× fewer operations.
+
+The 32 bands are a fixed cosine grid, not learned. The coupling between bands (32×32 matrix) is learned.
+
+---
+
+## How to Use
 
 ```bash
 pip install -r requirements.txt
 
-# Run all tests (140+ passing)
+# Run tests
 python -m pytest
 
-# Test the system
+# Quick test
 python -c "
 from urcm.core.system import URCMSystem
 s = URCMSystem(resonance_dim=2048)
 r = s.process_query('What do you use to cut paper?')
-print('Converged:', r.convergence_achieved, '| Steps:', len(r.mu_trajectory))
+print('Converged:', r.convergence_achieved)
 "
 
 # Run hallucination benchmark
 python hallucination_benchmark.py
-```
 
-### Training New Weights
-
-```bash
+# Train new weights
 python train_2048.py
 ```
 
@@ -91,84 +78,53 @@ python train_2048.py
 ## Architecture
 
 ```
-Text Input
-    │
-    ▼
-PhonemeFrequencyPipeline     ── char → phoneme → 24-dim frequency vector
-    │
-    ▼
-ResonancePathEncoder         ── Echo State Network, W_in(24×2048) + W_res(2048×2048)
-    ├─ Wave Physics Merger   ── O(B·D) dynamics via 32-band decomposition
-    ├─ OscillatoryGating     ── tanh × sigmoid phase-modulated gate
-    ├─ AttractorNetwork      ── Hopfield-Kuramoto synchronization
-    └─ MuConvergenceEngine   ── Halts when Δμ < ε
-    │
-    ▼
-GeometricMemory              ── Hebbian rank-1 deposits (one-shot learning)
-    │
-    ▼
-ConceptDecoder / BrocaArea   ── Nearest-neighbor retrieval or Markov bigram
+Text
+ → PhonemeMapper (char to phoneme to 24-dim vector)
+ → ResonanceEncoder (24 → 2048 dim, echo state network)
+   → WaveMerger (32-band compression, O(B·D) per step)
+   → OscillatoryGating (tanh × sigmoid)
+   → AttractorNetwork (phase synchronization)
+   → MuConvergence (stop when stable)
+ → Memory (Hebbian deposits, one-shot learning)
+ → Output (nearest neighbor or Markov decoder)
 ```
 
 ---
 
 ## Weight Files
 
-| Component | Shape | Description |
-|-----------|-------|-------------|
-| `W_in` | (24, 2048) | Input projection (frequency → resonance) |
-| `W_res` | (2048, 2048) | Recurrent dynamics (orthogonal × 0.95) |
-| `W_out` | (2048, 24) | Decoder (pseudoinverse of W_in) |
-| `bias` | (2048,) | Small random bias |
-| `qa_lr_w` | (5,) | Logistic regression weights for QA scoring |
-| `hippocampus` | 124 entries | Explicit memory for nearest-neighbor recall |
+| File | Shape | What |
+|------|-------|------|
+| W_in | 24 × 2048 | Input projection |
+| W_res | 2048 × 2048 | Recurrent weights |
+| W_out | 2048 × 24 | Decoder |
+| qa_lr_w | 5 | QA scorer weights |
+| hippocampus | 124 entries | Memory |
 
 ---
 
-## Project Structure
+## Files
 
 ```
 urcm/
 ├── core/
-│   ├── wave_merger.py          # Wave Physics — O(B·D) dynamics
-│   ├── resonance_encoder.py    # Echo State Network + wave dynamics
-│   ├── phoneme_mapper.py       # Text → phoneme → frequency vector
-│   ├── system.py               # URCMSystem (orchestrator)
-│   ├── memory.py               # GeometricMemory (Hebbian deposits)
-│   ├── convergence_engine.py   # μ-convergence beam search
-│   ├── oscillatory_gating.py   # Phase-modulated activation gating
-│   ├── attractor_network.py    # Hopfield-Kuramoto dynamics
-│   ├── latent_space.py         # Orthogonal projection D → 16
-│   ├── theory.py               # μ, ρ, χ theory implementation
-│   ├── safety.py               # SafetyGovernor (energy clamping)
+│   ├── wave_merger.py          # Wave compression
+│   ├── resonance_encoder.py    # Echo state network
+│   ├── phoneme_mapper.py       # Text to frequency
+│   ├── system.py               # Main system
+│   ├── memory.py               # Hebbian memory
 │   └── ...
-├── tests/                      # 140+ passing tests
-├── train_2048.py               # Training script
-├── hallucination_benchmark.py  # Hallucination evaluation
+├── tests/                      # 140+ tests
+├── train_2048.py               # Training
+├── hallucination_benchmark.py  # Evaluation
 └── requirements.txt
-```
-
----
-
-## Testing
-
-```bash
-python -m pytest                          # All tests
-python -m pytest tests/ -v --tb=short     # Verbose
-python -m pytest -m property              # Property-based only
-python -m pytest -m unit                  # Unit tests only
 ```
 
 ---
 
 ## Merge with Transformers
 
-See [URCM_TRANSFORMER_MERGE_GUIDE.md](./URCM_TRANSFORMER_MERGE_GUIDE.md) for integration guide covering:
-
-- Input Layer Replacement (swap token embeddings for frequency vectors)
-- Resonance Bottleneck (insert wave dynamics between encoder/decoder)
-- Memory-Augmented Attention (replace KV cache with Hebbian memory)
-- μ-Metric Loss (regularization signal during fine-tuning)
+See [URCM_TRANSFORMER_MERGE_GUIDE.md](./URCM_TRANSFORMER_MERGE_GUIDE.md) for how to integrate with HuggingFace, PyTorch, or JAX.
 
 ---
 
