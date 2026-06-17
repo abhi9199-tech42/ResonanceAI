@@ -30,11 +30,12 @@ build/
 # Jupyter
 .ipynb_checkpoints
 
-# Large weight files (users download separately)
+# Large weight files (users train or download separately)
 urcm_weights.pkl
 urcm_weights_from_bert.pkl
 urcm_identity.pkl
 urcm_bottleneck_trained.pt
+urcm/pretrained_weights/
 
 # Local test artifacts
 comprehensive_benchmark*.json
