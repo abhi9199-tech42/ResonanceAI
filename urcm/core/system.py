@@ -9,6 +9,7 @@ import numpy as np
 import os
 import pickle
 import time
+import functools
 from typing import List, Optional, Dict, Any, Tuple, Callable
 
 from urcm.core.data_models import (
@@ -24,6 +25,7 @@ from urcm.core.attractor_network import AttractorNetwork
 from urcm.core.error_handling import ErrorRecoverySystem
 from urcm.core.performance import OptimizedPhonemeSet
 from urcm.core.symbolic_engine import SymbolicEngine
+from urcm.core.theory import URCMTheory
 from urcm.core.memory import GeometricMemory
 from urcm.core.memory_maintenance import MemoryMaintenance
 
@@ -34,6 +36,9 @@ class URCMSystem:
 
     Integrates all sub-systems to provide a complete frequency-based reasoning pipeline.
     Uses Wave Physics Merger for O(B*D) complexity dynamics.
+
+    Can load pre-trained weights from HuggingFace transformers (BERT, GPT-2, DistilBERT)
+    via the `load_pretrained` parameter.
     """
 
     def __init__(
@@ -45,14 +50,50 @@ class URCMSystem:
         beam_width: int = 3,
         max_steps: int = 50,
         encoder_type: str = "recurrent_numpy",
-        use_wave_dynamics: bool = True
+        use_wave_dynamics: bool = True,
+        load_pretrained: Optional[str] = None,
     ):
         """
         Initialize the URCM System with all components.
+
+        Args:
+            load_pretrained: If set, load weights from a HuggingFace transformer model.
+                Supported: 'bert-base-uncased', 'bert-large-uncased', 'gpt2',
+                'gpt2-medium', 'distilbert-base-uncased', 'roberta-base'.
+                Weights are downloaded on first use and cached.
         """
         self.frequency_dim = frequency_dim
         self.resonance_dim = resonance_dim
         self.latent_dim = latent_dim
+
+        # Resolve pre-trained weights if requested
+        encoder_pretrained = None
+        if load_pretrained is not None:
+            from urcm.pretrained_weights import download_and_convert, save_urcm_weights
+
+            root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            cache_path = os.path.join(root_dir, "urcm", "pretrained_weights", f"{load_pretrained.replace('/', '_')}_urcm.pkl")
+
+            if os.path.exists(cache_path):
+                print(f"[URCM] Loading cached converted weights from {cache_path}")
+                with open(cache_path, "rb") as f:
+                    encoder_pretrained = pickle.load(f)
+                    encoder_pretrained.pop("qa_lr_w", None)
+                    encoder_pretrained.pop("hippocampus", None)
+                    encoder_pretrained.pop("metadata", None)
+            else:
+                print(f"[URCM] No cached weights found. Downloading {load_pretrained}...")
+                pretrained_all = download_and_convert(
+                    load_pretrained,
+                    resonance_dim=resonance_dim,
+                    input_dim=frequency_dim,
+                )
+                save_urcm_weights(pretrained_all, cache_path)
+                encoder_pretrained = {k: v for k, v in pretrained_all.items()
+                                      if k in ("W_in", "W_res", "W_out", "bias", "W_res_inv", "gate_alpha", "gate_beta")}
+                self._pretrained_metadata = pretrained_all.get("metadata", {})
+                self._pretrained_qa_w = pretrained_all.get("qa_lr_w", None)
+                self._pretrained_hippocampus = pretrained_all.get("hippocampus", [])
 
         # 1. Pipeline & Mapping
         self.pipeline = PhonemeFrequencyPipeline(frequency_dim=frequency_dim)
@@ -63,7 +104,8 @@ class URCMSystem:
             input_dim=frequency_dim,
             resonance_dim=resonance_dim,
             encoder_type=encoder_type,
-            use_wave_dynamics=use_wave_dynamics
+            use_wave_dynamics=use_wave_dynamics,
+            pretrained_weights=encoder_pretrained,
         )
         
         # 3. Memory & Dynamics
@@ -114,20 +156,29 @@ class URCMSystem:
         self.maintenance = MemoryMaintenance(self.encoder, self.memory, self.pipeline)
         
         self.qa_w = None  # default — overwritten if weights file exists
+        # First priority: weights from load_pretrained converter
+        if hasattr(self, '_pretrained_qa_w') and self._pretrained_qa_w is not None:
+            self.qa_w = self._pretrained_qa_w
+        if hasattr(self, '_pretrained_hippocampus') and self._pretrained_hippocampus:
+            self.hippocampus = self._pretrained_hippocampus
+            print(f"[SUCCESS] Loaded {len(self._pretrained_hippocampus)} hippocampus entries from pre-trained weights.")
+        # Second priority: local trained weights file
         root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         weight_path = os.path.join(root_dir, "urcm_weights.pkl")
         if os.path.exists(weight_path):
             try:
                 with open(weight_path, "rb") as f:
                     wdata = pickle.load(f)
-                self.qa_w = wdata.get("qa_lr_w", None)
-                h_data = wdata.get("hippocampus", [])
-                if h_data:
-                    self.hippocampus = h_data
-                    print(f"[SUCCESS] Loaded {len(h_data)} hippocampus entries.")
+                if self.qa_w is None:
+                    self.qa_w = wdata.get("qa_lr_w", None)
+                if not self.hippocampus:
+                    h_data = wdata.get("hippocampus", [])
+                    if h_data:
+                        self.hippocampus = h_data
+                        print(f"[SUCCESS] Loaded {len(h_data)} hippocampus entries.")
             except Exception as e:
                 print(f"[WARNING] Could not load extra brain data: {e}")
-                self.qa_w = None
+                self.qa_w = self.qa_w  # preserve pretrained value
                 
         # Load concept map for the convergence engine
         concept_map = {}
@@ -140,6 +191,142 @@ class URCMSystem:
             except Exception as e:
                 print(f"[WARNING] Could not load concept map from identity file: {e}")
         self.engine.concept_map = concept_map
+
+    def detect_hallucination(
+        self,
+        text: str,
+        top_k: int = 5,
+    ) -> Dict[str, Any]:
+        """
+        Detect hallucination via μ-convergence reasoning: μ = ρ/χ.
+
+        Three signals converge for exact detection:
+          1. **ρ (familiarity)**: How well the query aligns with known memories.
+             ρ = max cosine similarity to any hippocampus entry, normalized [0, 1].
+             High ρ = "I recognize this" (e.g., "spoon" matches "spoon" memory).
+             Low ρ = "I don't know this" (e.g., "asdfghjkl" matches nothing).
+
+          2. **χ (logical resistance)**: Residual after projecting query onto memories.
+             χ = L2 norm of (query - projection_onto_best_memory).
+             High χ = "this contradicts what I know" — the query has components that
+             don't fit any memory. Low χ = "this is consistent with my knowledge."
+
+          3. **Paradox detection**: If mutually exclusive concepts (e.g., "true" AND
+             "false") are simultaneously activated, χ explodes to 1e18 and μ = 0.
+
+        μ = ρ / (χ + ε). A factual input has both high ρ (familiar) and low χ
+        (no contradictions). A hallucination has either low ρ (unknown) or high χ
+        (contradicts known knowledge) — both produce low μ.
+
+        Args:
+            text: Input text to evaluate. Must be non-empty.
+            top_k: Number of nearest neighbors to consider.
+
+        Returns:
+            Dict with 'confidence' (0-1, low = hallucination), 'nn_label',
+            'mu_value', 'rho', 'chi', 'top_k_labels'.
+        """
+        if not text or not text.strip():
+            return {
+                "confidence": 0.5,
+                "mu_value": 0.0,
+                "rho": 0.0,
+                "chi": 1e18,
+                "nn_label": None,
+                "top_k_labels": [],
+                "num_memories": len(self.hippocampus) if hasattr(self, 'hippocampus') else 0,
+                "warning": "Empty text — returning neutral score",
+            }
+
+        if not hasattr(self, '_cache'):
+            self._cache = {}
+        cache_key = (text.strip().lower(),)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        freq_path = self.pipeline.process_text(text)
+        state = self.encoder.get_resonance_state(freq_path)
+        query_vec = state.resonance_vector
+
+        if not self.hippocampus:
+            result = {
+                "confidence": 0.5,
+                "mu_value": 0.0,
+                "rho": 0.0,
+                "chi": 1e18,
+                "nn_label": "no_memory",
+                "top_k_labels": [],
+                "num_memories": 0,
+                "warning": "No hippocampus entries loaded",
+            }
+            self._cache[cache_key] = result
+            return result
+
+        # --- 1. Compute μ = ρ/χ for each hippocampus entry ---
+        q_norm = np.linalg.norm(query_vec) + 1e-9
+        entries = []
+
+        for mem_vec, label, meta in self.hippocampus:
+            mem_norm = np.linalg.norm(mem_vec) + 1e-9
+            cos_sim = float(np.dot(query_vec, mem_vec) / (q_norm * mem_norm))
+            rho = max(0.0, cos_sim)  # ρ = familiarity (cosine into [0,1])
+
+            # χ = logical resistance: angular residual after aligning with memory
+            # Project query onto memory direction, compute normalized residual
+            # Normalizing by query norm makes χ independent of length (purely angular)
+            projection = (np.dot(query_vec, mem_vec) / (mem_norm * mem_norm)) * mem_vec
+            residual = query_vec - projection
+            chi = float(np.linalg.norm(residual) / (q_norm + 1e-9))
+
+            # Paradox detection: check if query activates mutually exclusive concepts
+            specific_paradox = URCMTheory.detect_paradox(query_vec, {label: mem_vec})
+            if specific_paradox:
+                chi = 1e18
+
+            mu = URCMTheory.compute_mu(rho, chi)
+            entries.append((mu, rho, chi, cos_sim, label, meta))
+
+        # --- 2. Check global paradox ---
+        concept_map = {}
+        if hasattr(self, 'engine') and hasattr(self.engine, 'concept_map'):
+            concept_map = self.engine.concept_map
+        global_paradox = URCMTheory.detect_paradox(query_vec, concept_map)
+
+        entries.sort(key=lambda x: x[0], reverse=True)
+        top_entries = entries[:top_k]
+        best_mu, best_rho, best_chi, best_cos, best_label, _ = top_entries[0]
+
+        if global_paradox:
+            best_chi = 1e18
+            best_mu = 0.0
+
+        # --- 3. Normalize μ to [0, 1] confidence ---
+        # μ = ρ/χ. ρ ∈ [0,1], χ ∈ [0, ∞). 
+        # Map: confidence = ρ * exp(-χ) = μ * χ * exp(-χ)
+        # This gives: close match (χ≈0, ρ≈1) → 1.0, far (χ→∞) → 0.0
+        confidence = float(best_rho * np.exp(-best_chi))
+
+        result = {
+            "confidence": confidence,
+            "mu_value": float(best_mu),
+            "rho": float(best_rho),
+            "chi": float(best_chi),
+            "raw_cosine": float(best_cos),
+            "nn_label": best_label,
+            "top_k_labels": [(label, round(mu, 4)) for mu, _, _, _, label, _ in top_entries],
+            "num_memories": len(self.hippocampus),
+            "resonance_norm": float(np.linalg.norm(query_vec)),
+            "input_length": len(text.strip().split()),
+            "paradox_detected": global_paradox,
+        }
+        if len(self._cache) < 1024:
+            self._cache[cache_key] = result
+        return result
+
+    def detect_hallucination_batch(self, texts: List[str], top_k: int = 5) -> List[Dict[str, Any]]:
+        """Process multiple texts, returns list of results."""
+        return [self.detect_hallucination(t, top_k=top_k) for t in texts]
+
     def maintain_spectral(self, max_sigma: float = 1.5):
         W = self.encoder.W_res
         Wc = self.maintenance.spectral_clip(W, max_sigma=max_sigma)

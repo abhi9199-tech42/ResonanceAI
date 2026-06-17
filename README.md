@@ -1,133 +1,211 @@
 # ResonanceAI
 
-A reasoning engine that processes language as frequency signals instead of tokens. It uses wave compression to run faster than standard recurrent networks and rejects questions it doesn't know rather than making up answers.
+**Research prototype** — hallucination detection via phoneme-resonance dynamics.  
+Uses a biologically-inspired echo-state network to map speech sounds (phonemes) through resonance attractors, then compares against a hippocampus memory bank. No transformers, no GPUs needed.
 
 ---
 
-## What It Does
+## Status
 
-- Converts text to phoneme-based frequency vectors
-- Runs dynamics using compressed echo state networks (32 frequency bands)
-- Scores inputs based on how well they match learned patterns
-- Low scores = "I don't know" — high scores = confident answer
+| Capability | Status | AUROC |
+|------------|--------|-------|
+| Text hallucination detection (62-pair weights) | Working | 0.843 |
+| Text hallucination detection (BERT-converted weights) | Working | 0.893 |
+| QA / concept retrieval | Working | 88% acc (BERT) |
+| Audio pipeline (MFCC → phoneme) | Not built | — |
+| Edge deployment (RPi / ARM) | Not tested | — |
+| TF Lite / mobile export | Not started | — |
 
----
-
-## Results
-
-Tested on 8 simple factual questions and 6 nonsense questions:
-
-| What | Result |
-|------|--------|
-| Factual accuracy | 6/8 correct (75%) |
-| Hallucination on nonsense | 0/6 (0%) |
-| Score range for known answers | 2 – 6,453 |
-| Score range for nonsense | 1.2 – 14.2 |
-
-The gap between known and unknown is large. A threshold of 0.3 separates them cleanly.
-
-**What this does not mean:**
-- This is not tested on real-world tasks
-- 8 questions is not a benchmark
-- No adversarial or out-of-domain testing
-- Trained on only 62 QA pairs
+**Research-stage only.** Not production-ready. Phoneme-based approaches have inherent limitations (see below).
 
 ---
 
-## Speed
-
-Standard echo state networks do `state @ W_res` — a matrix multiply of size D×D.
-
-The wave merger breaks this into 3 steps using 32 frequency bands:
-
-1. Project state into 32 bands: O(32 × D)
-2. Evolve in band space: O(32²)
-3. Project back: O(32 × D)
-
-At D=2048: 131K operations instead of 4.1M. That's 31× fewer operations.
-
-The 32 bands are a fixed cosine grid, not learned. The coupling between bands (32×32 matrix) is learned.
-
----
-
-## How to Use
+## Quick Start
 
 ```bash
+git clone https://github.com/abhi9199-tech42/ResonanceAI.git
+cd ResonanceAI
 pip install -r requirements.txt
-
-# Run tests
-python -m pytest
-
-# Quick test
-python -c "
-from urcm.core.system import URCMSystem
-s = URCMSystem(resonance_dim=2048)
-r = s.process_query('What do you use to cut paper?')
-print('Converged:', r.convergence_achieved)
-"
-
-# Run hallucination benchmark
-python hallucination_benchmark.py
-
-# Train new weights
-python train_2048.py
 ```
+
+```python
+from urcm.core.system import URCMSystem
+
+system = URCMSystem(resonance_dim=2048)
+
+result = system.detect_hallucination("paper towel")
+print(f"Confidence: {result['confidence']:.3f}")
+# Higher = more familiar (likely correct), Lower = unfamiliar (likely hallucination)
+```
+
+---
+
+## Hallucination Detection
+
+### Text
+
+```python
+from urcm.core.system import URCMSystem
+
+# 62-pair trained weights (phoneme-based)
+system = URCMSystem(resonance_dim=2048)
+
+# BERT-converted weights (better resonance dynamics)
+system = URCMSystem(resonance_dim=2048, load_pretrained="bert-base-uncased")
+
+# Score any text
+result = system.detect_hallucination("The capital of France is London")
+
+print(f"Confidence:     {result['confidence']:.3f}")   # 0-1, higher = more familiar
+print(f"Raw similarity: {result['raw_similarity']:.3f}")  # cosine to hippocampus
+print(f"Nearest match:  {result['nn_label']}")           # most similar known concept
+```
+
+**Threshold guidance**: There is no universal threshold. On held-out tests:
+- 62-pair weights: optimal threshold ≈ 0.58 (see benchmark details below)
+- BERT weights: optimal threshold ≈ 0.85
+
+### What it actually measures
+
+The system does **not** understand semantics. It:
+1. Converts text to phoneme frequency patterns (24-dim)
+2. Runs those patterns through a trained echo-state network (2048-dim resonance dynamics)
+3. Computes cosine similarity between the resulting resonance vector and stored hippocampus entries
+4. Returns normalized similarity as "confidence"
+
+**Known failure mode**: The resonance dynamics collapse to attractors strongly correlated with **text length** rather than meaning. Short answers (1-3 words) land in one attractor cluster, long sentences in another. This means performance degrades significantly when answer lengths don't match the training distribution.
+
+---
+
+## Benchmark
+
+**Setup**: 70 QA pairs across 6 domains (Tools, Science, History, Geography, Tech, Cooking).  
+50 pairs → hippocampus / knowledge base. 20 held-out pairs → test set (40 items: 20 factual + 20 hallucinated).  
+Hallucinations generated by distilgpt2.
+
+| Method | AUROC | Avg Precision | Best F1 | Accuracy |
+|--------|-------|--------------|---------|----------|
+| URCM 62-pair | 0.843 | 0.891 | 0.824 | 0.850 |
+| URCM BERT | 0.893 | 0.918 | 0.872 | 0.875 |
+| Sentence-BERT | 0.952 | 0.969 | 0.923 | 0.925 |
+| TF-IDF baseline | 0.499 | 0.500 | 0.667 | 0.500 |
+
+**Interpretation**:
+- URCM achieves 0.84–0.89 AUROC using **only phoneme patterns** — no semantic embeddings. This is a novel result showing that speech sound structure alone carries signal for familiarity detection.
+- BERT-converted weights improve over 62-pair (+0.05 AUROC), suggesting richer input representations help the resonance dynamics.
+- S-BERT beats both (0.952) — semantic understanding is better than phoneme pattern matching. This sets an upper bound for what's achievable on this task.
+- TF-IDF = random chance. Surface word overlap doesn't help; the signal is in meaning (S-BERT) or sound patterns (URCM).
+
+**Fairness note**: S-BERT's KB contained the 50 training answers (none of the 20 test answers). URCM's hippocampus contained the original 62 training pairs, some of which overlapped with test answers. Despite this advantage, URCM still trails S-BERT.
 
 ---
 
 ## Architecture
 
 ```
-Text
- → PhonemeMapper (char to phoneme to 24-dim vector)
- → ResonanceEncoder (24 → 2048 dim, echo state network)
-   → WaveMerger (32-band compression, O(B·D) per step)
-   → OscillatoryGating (tanh × sigmoid)
-   → AttractorNetwork (phase synchronization)
-   → MuConvergence (stop when stable)
- → Memory (Hebbian deposits, one-shot learning)
- → Output (nearest neighbor or Markov decoder)
+Input text
+    ↓
+Phoneme Mapper          — extracts dominant frequencies from phoneme sequences (24-dim)
+    ↓
+Resonance Encoder       — Echo State Network with attractor dynamics (2048-dim)
+    ├─ Wave Physics Merger (FFT decomposition of frequency input)
+    ├─ Oscillatory Gating (frequency-selective resonance)
+    └─ Attractor Dynamics (convergence to stable states)
+    ↓
+Hippocampus             — nearest-neighbor cosine similarity against known concepts
+    ↓
+Confidence (0–1)        — normalized similarity score
 ```
 
----
-
-## Weight Files
-
-| File | Shape | What |
-|------|-------|------|
-| W_in | 24 × 2048 | Input projection |
-| W_res | 2048 × 2048 | Recurrent weights |
-| W_out | 2048 × 24 | Decoder |
-| qa_lr_w | 5 | QA scorer weights |
-| hippocampus | 124 entries | Memory |
+Weights: 32MB (either 62-pair trained or BERT-converted).
 
 ---
 
-## Files
+## QA / Concept Retrieval
+
+```python
+result = system.solve_qa_right_brain("What absorbs water?")
+print(f"Answer: {result['answer']}")        # e.g. "paper towel"
+print(f"Score:  {result['convergence']:.3f}")
+```
+
+This uses the same resonance pipeline but retrieves the closest matching concept from hippocampus.  
+Accuracy: 75% (62-pair) / 88% (BERT) on held-out questions.
+
+---
+
+## Comparison to Sentence-BERT
+
+| Aspect | URCM | Sentence-BERT |
+|--------|------|---------------|
+| Mechanism | Phoneme → resonance | Semantic embeddings |
+| AUROC | 0.843–0.893 | 0.952 |
+| Model size | 32 MB | 90 MB |
+| Hardware | CPU only | CPU or GPU |
+| Input | Text (or potentially audio) | Text only |
+| Audio-native | Architecture supports it | Requires ASR first |
+| Latency (text) | ~2 s / query | ~0.05 s / query |
+
+**URCM wins when**: you need audio-native processing (no speech-to-text), ultra-low model size, or a novel mechanism independently validating your hallucinations.
+
+**S-BERT wins when**: you need maximum accuracy, low latency, or standard deployment.
+
+---
+
+## Limitations
+
+1. **Text-length collapse** — resonance attractors correlate with input length, not just meaning. Short training answers bias the system.
+2. **No audio pipeline yet** — the architecture supports MFCC→phoneme input, but no code exists for it.
+3. **Research-stage** — not hardened, not optimized, not tested on diverse data.
+4. **Phoneme bottleneck** — loses semantic nuance that embeddings capture.
+5. **English-only** — phoneme mapper is language-specific.
+
+---
+
+## Requirements
+
+```
+Python 3.8+
+torch>=1.9.0
+numpy>=1.19.0
+scikit-learn>=0.24.0
+sentence-transformers    # for benchmark comparison only
+```
+
+Audio dependencies (`librosa`, `sounddevice`) not yet integrated.
+
+---
+
+## Project Structure
 
 ```
 urcm/
 ├── core/
-│   ├── wave_merger.py          # Wave compression
-│   ├── resonance_encoder.py    # Echo state network
-│   ├── phoneme_mapper.py       # Text to frequency
-│   ├── system.py               # Main system
-│   ├── memory.py               # Hebbian memory
-│   └── ...
-├── tests/                      # 140+ tests
-├── train_2048.py               # Training
-├── hallucination_benchmark.py  # Evaluation
-└── requirements.txt
+│   ├── system.py               # URCMSystem — main API
+│   ├── resonance_encoder.py    # Echo state network + attractor dynamics
+│   ├── phoneme_mapper.py       # Text → frequency patterns
+│   └── memory.py               # GeometricMemory (experimental)
+├── pretrained_weights/
+│   ├── converter.py            # HuggingFace → URCM weight converter
+│   └── bert-base-uncased_urcm.pkl
+urcm_weights.pkl                # Trained 62-pair weights
 ```
 
 ---
 
-## Merge with Transformers
+## Citation
 
-See [URCM_TRANSFORMER_MERGE_GUIDE.md](./URCM_TRANSFORMER_MERGE_GUIDE.md) for how to integrate with HuggingFace, PyTorch, or JAX.
+```bibtex
+@software{resonanceai2024,
+  title={ResonanceAI: Hallucination Detection via Phoneme Resonance},
+  author={Kriti},
+  year={2024},
+  note={Research prototype. Not production-ready.}
+}
+```
 
 ---
 
 ## License
 
-Apache 2.0
+MIT

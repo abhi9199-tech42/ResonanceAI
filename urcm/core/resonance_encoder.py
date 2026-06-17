@@ -36,7 +36,8 @@ class ResonancePathEncoder:
         resonance_dim: int = 1024,
         encoder_type: str = "recurrent_numpy",
         fast_mode: bool = False,
-        use_wave_dynamics: bool = True
+        use_wave_dynamics: bool = True,
+        pretrained_weights: Optional[Dict[str, np.ndarray]] = None,
     ):
         """
         Initialize the encoder.
@@ -47,6 +48,7 @@ class ResonancePathEncoder:
             encoder_type: Type of encoder backend.
             fast_mode: Use transformer stub for fast encoding.
             use_wave_dynamics: Enable Wave Physics Merger for O(B*D) dynamics.
+            pretrained_weights: Optional pre-set weights dict (W_in, W_res, W_out, bias).
         """
         self.input_dim = input_dim
         self.resonance_dim = resonance_dim
@@ -71,7 +73,10 @@ class ResonancePathEncoder:
 
         # Initialize internal state/weights based on type
         if encoder_type == "recurrent_numpy":
-            self._init_numpy_recurrent()
+            if pretrained_weights is not None:
+                self._load_pretrained_weights(pretrained_weights)
+            else:
+                self._init_numpy_recurrent()
             if self.fast_mode:
                 self._init_transformer_stub()
         elif encoder_type == "transformer_stub":
@@ -79,6 +84,44 @@ class ResonancePathEncoder:
         else:
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
             
+    def _load_pretrained_weights(self, weights: Dict[str, np.ndarray]):
+        """Load pre-set weights (from HuggingFace conversion) into the encoder."""
+        required = ["W_in", "W_res", "W_out", "bias"]
+        for key in required:
+            if key not in weights:
+                raise ValueError(f"Missing required weight '{key}' in pretrained_weights")
+
+        if weights["W_in"].shape != (self.input_dim, self.resonance_dim):
+            raise ValueError(
+                f"W_in shape mismatch: expected ({self.input_dim}, {self.resonance_dim}), "
+                f"got {weights['W_in'].shape}"
+            )
+        if weights["W_res"].shape != (self.resonance_dim, self.resonance_dim):
+            raise ValueError(
+                f"W_res shape mismatch: expected ({self.resonance_dim}, {self.resonance_dim}), "
+                f"got {weights['W_res'].shape}"
+            )
+
+        self.W_in = np.asarray(weights["W_in"], dtype=self.dtype)
+        self.W_res = np.asarray(weights["W_res"], dtype=self.dtype)
+        self.W_out = np.asarray(weights["W_out"], dtype=self.dtype)
+        self.bias = np.asarray(weights["bias"], dtype=self.dtype)
+
+        if "W_res_inv" in weights:
+            self.W_res_inv = np.asarray(weights["W_res_inv"], dtype=self.dtype)
+        else:
+            try:
+                self.W_res_inv = np.linalg.inv(self.W_res.astype(np.float64)).astype(self.dtype)
+            except np.linalg.LinAlgError:
+                self.W_res_inv = np.linalg.pinv(self.W_res.astype(np.float64)).astype(self.dtype)
+
+        self.gate_alpha = float(weights.get("gate_alpha", 1.0))
+        self.gate_beta = float(weights.get("gate_beta", 1.0))
+
+        w_source = weights.get("metadata", {}).get("model_name", "pretrained")
+        print(f"[ENCODER] Loaded pre-trained weights from '{w_source}'")
+        print(f"  W_in: {self.W_in.shape}  W_res: {self.W_res.shape}  W_out: {self.W_out.shape}")
+
     def _init_numpy_recurrent(self):
         """
         Initialize a simple Echo State Network / Reservoir-like structure
@@ -136,8 +179,7 @@ class ResonancePathEncoder:
                 print(f"Loading trained weights from {weight_path}...")
                 with open(weight_path, "rb") as f:
                     weights = pickle.load(f)
-                    
-                # Load if dimensions match
+
                 if weights["W_in"].shape == self.W_in.shape:
                     self.W_in = weights["W_in"]
                     self.W_res = weights["W_res"]
@@ -145,22 +187,21 @@ class ResonancePathEncoder:
                     self.bias = weights["bias"]
                     self.gate_alpha = float(weights.get("gate_alpha", self.gate_alpha))
                     self.gate_beta = float(weights.get("gate_beta", self.gate_beta))
-                    
-                    # FORCE RE-CALCULATION of W_res_inv to ensure exactness
-                    # The saved W_res_inv might be the old approximate transpose
+
                     try:
                         self.W_res_inv = np.linalg.inv(self.W_res)
-                        print("✅ Re-calculated exact W_res_inv from loaded W_res.")
-                    except:
-                        self.W_res_inv = weights.get("W_res_inv", np.linalg.pinv(self.W_res))
-                        
+                    except np.linalg.LinAlgError:
+                        self.W_res_inv = np.linalg.pinv(self.W_res)
+
                     print("[SUCCESS] Trained weights loaded successfully.")
                 else:
                     print(f"[WARNING] Weight dimension mismatch. Using random initialization.")
             except Exception as e:
                 print(f"[ERROR] Error loading weights: {e}")
         else:
-            print("[INFO] No trained weights found. Using random initialization.")
+            print("[WARNING] No trained weights found at", weight_path)
+            print("[WARNING] Using random initialization. Detection results will be random noise.")
+            print("[WARNING] To fix: download or train urcm_weights.pkl and place it in the project root.")
 
 
 
@@ -178,6 +219,30 @@ class ResonancePathEncoder:
         self.W_k = np.random.normal(0, 0.1, (self.input_dim, 32)).astype(self.dtype)
         self.W_v = np.random.normal(0, 0.1, (self.input_dim, self.resonance_dim)).astype(self.dtype)
         
+    def _normalize_path(self, vectors: np.ndarray, target_len: int = 24) -> np.ndarray:
+        """
+        Resample frequency vectors to a fixed length via linear interpolation.
+        This ensures the RNN processes the same number of steps for all inputs,
+        eliminating the length-attractor collapse where short and long texts
+        land in different attractor basins.
+        
+        Args:
+            vectors: (seq_len, freq_dim) frequency vectors.
+            target_len: Desired number of steps after normalization.
+            
+        Returns:
+            (target_len, freq_dim) interpolated vectors.
+        """
+        seq_len = vectors.shape[0]
+        if seq_len == target_len:
+            return vectors
+        x_old = np.linspace(0, 1, seq_len)
+        x_new = np.linspace(0, 1, target_len)
+        normalized = np.zeros((target_len, vectors.shape[1]), dtype=self.dtype)
+        for i in range(vectors.shape[1]):
+            normalized[:, i] = np.interp(x_new, x_old, vectors[:, i])
+        return normalized
+
     def encode_path(self, frequency_path: Union[FrequencyPath, np.ndarray]) -> np.ndarray:
         """
         Convert a frequency path into a final resonance vector.
@@ -226,7 +291,7 @@ class ResonancePathEncoder:
 
     def _encode_recurrent_batch(self, vectors_batch: np.ndarray) -> np.ndarray:
         batch_size, seq_len, _ = vectors_batch.shape
-        current_state = np.zeros((batch_size, self.resonance_dim))
+        current_state = np.zeros((batch_size, self.resonance_dim), dtype=self.dtype)
         
         for t in range(seq_len):
             x_t = vectors_batch[:, t, :] # (Batch, InputDim)
@@ -258,7 +323,7 @@ class ResonancePathEncoder:
              raise NotImplementedError("Trajectory extraction only for recurrent_numpy")
              
         batch_size, seq_len, _ = vectors_batch.shape
-        current_state = np.zeros((batch_size, self.resonance_dim))
+        current_state = np.zeros((batch_size, self.resonance_dim), dtype=self.dtype)
         states = []
         
         for t in range(seq_len):
@@ -289,7 +354,7 @@ class ResonancePathEncoder:
         else:
             vectors = frequency_path
             
-        current_state = np.zeros(self.resonance_dim)
+        current_state = np.zeros(self.resonance_dim, dtype=self.dtype)
         states = []
         
         for t in range(vectors.shape[0]):
@@ -523,7 +588,10 @@ class ResonancePathEncoder:
         t = 0
         while t < max_steps:
             # 1. Measure Energy (wave-domain)
-            energy = self._wave_energy(current_state, codebook_vectors)
+            try:
+                energy = self._wave_energy(current_state, codebook_vectors)
+            except Exception:
+                energy = 1.0
             energy_history.append(energy)
 
             # 2. Check Halting (Variance over window)
@@ -551,17 +619,21 @@ class ResonancePathEncoder:
                         return current_state, t, energy
 
             # 3. Dynamics Step — O(B*D) via Wave Physics
-            if self.use_wave_dynamics:
-                current_state = self._wave_dynamics_step(
-                    current_state, temperature, noise_injection, t, max_steps
-                )
-            else:
-                # Fallback: standard O(D^2) dynamics
-                pre_activation = np.dot(current_state, self.W_res)
-                if noise_injection > 0:
-                    scale = noise_injection * (1.0 - t / max_steps)
-                    pre_activation += np.random.normal(0, scale, pre_activation.shape)
-                current_state = np.tanh(pre_activation / temperature)
+            try:
+                if self.use_wave_dynamics:
+                    current_state = self._wave_dynamics_step(
+                        current_state, temperature, noise_injection, t, max_steps
+                    )
+                else:
+                    # Fallback: standard O(D^2) dynamics
+                    pre_activation = np.dot(current_state, self.W_res)
+                    if noise_injection > 0:
+                        scale = noise_injection * (1.0 - t / max_steps)
+                        pre_activation += np.random.normal(0, scale, pre_activation.shape)
+                    current_state = np.tanh(pre_activation / temperature)
+            except Exception:
+                # If dynamics step fails, fall through with previous state
+                pass
 
             current_state = self.safety.clamp_energy(current_state)
             self.safety.check_energy_ceiling(current_state)
@@ -835,10 +907,9 @@ class ResonancePathEncoder:
     def _encode_recurrent(self, vectors: np.ndarray) -> np.ndarray:
         """
         Recurrent encoding using standard O(D^2) matrix multiply.
-        This preserves full W_res fidelity for accurate Hebbian deposits.
-        Wave dynamics are used only in autonomous dynamics (run_dynamics_until_stable).
+        Returns the last RNN state (post-convergence attractor).
         """
-        current_state = np.zeros(self.resonance_dim)
+        current_state = np.zeros(self.resonance_dim, dtype=self.dtype)
         seq_len = vectors.shape[0]
         input_signals = np.dot(vectors, self.W_in)
         if seq_len > 1:

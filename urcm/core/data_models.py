@@ -26,16 +26,14 @@ class PhonemeSequence:
 
 @dataclass
 class FrequencyPath:
-    """Represents a continuous frequency path derived from phoneme sequences."""
-    vectors: np.ndarray  # Shape: (sequence_length, K) where K ∈ [16, 32]
+    """Represents a continuous frequency path derived from phoneme sequences or BERT embeddings."""
+    vectors: np.ndarray  # Shape: (sequence_length, K) where K ∈ [16, 32] for phonemes, or K=768 for BERT
     smoothness_score: float
-    phoneme_mapping: List[Tuple[str, int]]  # (phoneme, vector_index)
+    phoneme_mapping: List[Tuple[str, int]]  # (phoneme/token, vector_index)
     
     def __post_init__(self):
         if self.vectors.ndim != 2:
             raise ValueError("Frequency vectors must be 2-dimensional")
-        if not (16 <= self.vectors.shape[1] <= 32):
-            raise ValueError("Frequency dimension K must be in range [16, 32]")
         if self.smoothness_score < 0:
             raise ValueError("Smoothness score must be non-negative")
         if len(self.phoneme_mapping) != self.vectors.shape[0]:

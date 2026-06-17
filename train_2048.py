@@ -213,9 +213,18 @@ def train_hebbian(pipeline, rpenc, mem, W_res, hippocampus):
             elapsed = time.time() - t0
             print(f"  [{i+1:3d}/{len(COMMONSENSE_QA)}] {question[:50]}  ({elapsed:.1f}s)")
 
-    # Spectral clip
+    # Restore rank after Hebbian deposits (prevents attractor collapse)
+    # Hebbian rank-1 updates collapse W_res to low rank, causing all long inputs
+    # to converge to the same attractor. Adding small noise preserves full-rank.
+    print("Restoring rank...")
+    np.random.seed(42)
+    noise_std = float(np.std(W_res)) * 0.05
+    noise = np.random.normal(0, noise_std, W_res.shape).astype(DTYPE)
+    W_res += noise
+
+    # Spectral clip to stable regime (prevents chaotic blowup)
     print("Spectral clipping...")
-    W_res = spectral_clip(W_res, max_sr=1.2)
+    W_res = spectral_clip(W_res, max_sr=0.95)
 
     return W_res, hippocampus
 

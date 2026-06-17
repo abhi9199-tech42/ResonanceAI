@@ -330,7 +330,12 @@ class TextToPhonemeConverter:
             'g': 'g', 'h': 'h', 'i': 'i', 'j': 'j', 'k': 'k', 'l': 'l',
             'm': 'm', 'n': 'n', 'o': 'o', 'p': 'p', 'q': 'k', 'r': 'r',
             's': 's', 't': 't', 'u': 'u', 'v': 'v', 'w': 'v', 'x': 'x',
-            'y': 'y', 'z': 'z'
+            'y': 'y', 'z': 'z',
+        }
+        # Common English digraphs
+        self.english_digraphs = {
+            'sh': 'ś', 'ch': 'c', 'zh': 'z', 'ee': 'ī', 'oo': 'ū',
+            'th': 't', 'kh': 'kh', 'gh': 'gh', 'ph': 'f', 'wh': 'v',
         }
         
         # Sanskrit IAST Direct Map (Identity for known phonemes)
@@ -362,13 +367,16 @@ class TextToPhonemeConverter:
         
         i = 0
         while i < len(text):
-            # Try 2-char match first
+            # Try 2-char match first (Sanskrit digraphs)
             if i + 1 < len(text):
                 chunk = text[i:i+2]
                 if chunk in ['ai', 'au', 'kh', 'gh', 'ch', 'jh', 'th', 'dh', 'ph', 'bh']:
-                    # Check if valid Sanskrit phoneme (simplified check)
-                    # We map these digraphs directly
                     phonemes.append(chunk)
+                    i += 2
+                    continue
+                # English digraphs
+                if chunk in self.english_digraphs:
+                    phonemes.append(self.english_digraphs[chunk])
                     i += 2
                     continue
             

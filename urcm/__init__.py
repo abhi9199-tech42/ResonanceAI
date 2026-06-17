@@ -1,27 +1,10 @@
 """
-Unified μ-Resonance Cognitive Mesh (URCM) - A frequency-based reasoning system.
-
-This package implements a revolutionary artificial reasoning system that replaces 
-discrete token-based processing with continuous frequency-based representations.
+ResonanceAI — hallucination detection via phoneme-resonance dynamics.
 """
 
-__version__ = "0.1.0"
-__author__ = "URCM Development Team"
+__version__ = "0.2.0"
+__author__ = "Kriti"
 
-from .core.data_models import (
-    PhonemeSequence,
-    FrequencyPath,
-    ResonanceState,
-    AttractorState,
-    ReasoningPath,
-    MeshSignal
-)
+from urcm.core.system import URCMSystem
 
-__all__ = [
-    "PhonemeSequence",
-    "FrequencyPath", 
-    "ResonanceState",
-    "AttractorState",
-    "ReasoningPath",
-    "MeshSignal"
-]
+__all__ = ["URCMSystem"]

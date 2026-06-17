@@ -9,8 +9,6 @@ __pycache__/
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
 
 # Testing
 .hypothesis/
@@ -19,15 +17,33 @@ coverage.xml
 *.cover
 *.log
 
-# Distribution / Packaging
+# Distribution
 dist/
 build/
 *.egg-info/
-
-# Jupyter Notebook
-.ipynb_checkpoints
 
 # IDEs
 .vscode/
 .idea/
 *.swp
+
+# Jupyter
+.ipynb_checkpoints
+
+# Large weight files (users download separately)
+urcm_weights.pkl
+urcm_weights_from_bert.pkl
+urcm_identity.pkl
+urcm_bottleneck_trained.pt
+
+# Local test artifacts
+comprehensive_benchmark*.json
+heldout_benchmark.json
+comparison_results.json
+
+# Weight backups
+*_backup.pkl
+
+# Temp test scripts
+_test_*.py
+_debug_*.py
