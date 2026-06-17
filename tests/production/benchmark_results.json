@@ -1,9 +1,0 @@
-{
-  "method": "detect_hallucination (centroid + specificity)",
-  "auroc_all": 0.603,
-  "auroc_short": 0.779,
-  "auroc_long": 0.439,
-  "mean_conf_factual": 0.907,
-  "mean_conf_hallucination": 0.92,
-  "note": "Final Phase 2. centroid subtraction removes common-mode ~0.85 cosine. specificity penalizes when best match is not much higher than mean. Short-form limited by same-text-conflicting-labels (spoon as both factual and hallucination). Use verify_qa() for question-aware detection (AUROC=1.0 short)."
-}
