@@ -217,7 +217,7 @@ class TestDataModelIntegrity:
     def test_frequency_path_dimension_validation(self):
         """Test that frequency paths with invalid dimensions are rejected."""
         # Test invalid K dimension (too small)
-        with pytest.raises(ValueError, match="Frequency dimension K must be in range"):
+        with pytest.raises(ValueError, match="Frequency dimension K.*must be in range"):
             FrequencyPath(
                 vectors=np.random.randn(5, 10),  # K=10 < 16
                 smoothness_score=1.0,
@@ -225,7 +225,7 @@ class TestDataModelIntegrity:
             )
         
         # Test invalid K dimension (too large)
-        with pytest.raises(ValueError, match="Frequency dimension K must be in range"):
+        with pytest.raises(ValueError, match="Frequency dimension K.*must be in range"):
             FrequencyPath(
                 vectors=np.random.randn(5, 40),  # K=40 > 32
                 smoothness_score=1.0,

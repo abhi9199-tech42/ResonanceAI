@@ -5,6 +5,7 @@ import time
 import sqlite3
 import pickle
 from typing import List, Dict, Optional, Tuple, Union
+from urcm.core.safe_io import safe_load_pickle_bytes
 
 class LongTermMemory:
     """
@@ -84,7 +85,7 @@ class LongTermMemory:
         vectors = []
         ids = []
         for r in rows:
-            vec = pickle.loads(r[1])
+            vec = safe_load_pickle_bytes(r[1])
             if self.vector_dim is not None and vec is not None and vec.ndim == 1:
                 if vec.shape[0] < self.vector_dim:
                     pad = self.vector_dim - vec.shape[0]

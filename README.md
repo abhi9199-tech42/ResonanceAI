@@ -1,7 +1,7 @@
 # ResonanceAI: Decision Brain for Autonomous Agents
 
 AI that knows when it doesn't know.  
-32MB model. CPU-only. No GPU. AUROC 1.0 on short-answer decisions.
+32MB model. CPU-only. No GPU. AUROC 1.0 on 62 household pairs.
 
 ---
 
@@ -55,7 +55,7 @@ confidence: 0.02 → REJECT → "I'm not confident in that"
 
 ## Specs
 
-- **AUROC**: 1.0 on short-answer decisions
+- **AUROC**: 1.0 on 62 household pairs
 - **Latency**: 0.2s per query
 - **Model**: 32MB (13× smaller than BERT)
 - **Hardware**: CPU-only, Raspberry Pi, phone, Jetson Nano
@@ -149,7 +149,7 @@ See **[TRAINING_GUIDE.md](TRAINING_GUIDE.md)** for complete guide covering:
 
 - Dataset format and examples (drone, robot, vehicle, voice)
 - Recommended dataset sizes per domain
-- How to run training (`python train_2048.py --data my_pairs.json`)
+- How to run training (`python train_2048.py` with your JSON pairs file)
 - Tips for good datasets (wrong answers, edge cases, balancing)
 - Domain-specific dataset recommendations (AirSim, Isaac Gym, CARLA, etc.)
 - One-shot learning at runtime
@@ -158,7 +158,7 @@ See **[TRAINING_GUIDE.md](TRAINING_GUIDE.md)** for complete guide covering:
 ### Quick example
 
 ```bash
-python train_2048.py --data my_drone_pairs.json
+python train_2048.py  # pass your JSON pairs file path
 ```
 
 ```python
@@ -311,7 +311,7 @@ We optimize inference for your specific hardware:
 pip install -r requirements.txt
 
 # Train on domain
-python train_2048.py --data my_pairs.json
+python train_2048.py  # pass your JSON pairs file path
 
 # Verify on target hardware
 python examples/production_eval.py
@@ -322,7 +322,7 @@ python examples/production_eval.py
 ## FAQ
 
 **Train on my robot's domain?**  
-Collect 100+ (question, correct_answer, wrong_alternatives) triples. Save as JSON. Run `python train_2048.py --data my_pairs.json`.
+Collect 100+ (question, correct_answer, wrong_alternatives) triples. Save as JSON. Run `python train_2048.py` with your JSON pairs file.
 
 **Run on Raspberry Pi?**  
 Yes. 32MB model, CPU-only, 0.2s per query. Tested on RPi 4.
@@ -374,10 +374,10 @@ Custom optimization and enterprise licensing available.
 ## Citation
 
 ```bibtex
-@software{resonanceai2024,
+@software{resonanceai2026,
   title={ResonanceAI: Decision Brain for Autonomous Agents},
   author={Kriti},
-  year={2024},
+  year={2026},
   url={https://github.com/abhi9199-tech42/ResonanceAI}
 }
 ```

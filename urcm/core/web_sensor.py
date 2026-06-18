@@ -3,6 +3,8 @@ from bs4 import BeautifulSoup
 import re
 import time
 from typing import List, Optional
+from urllib.parse import urlparse
+import ipaddress
 from urcm.core.ingest import KnowledgeIngestion
 
 class WebSensor:
@@ -11,19 +13,54 @@ class WebSensor:
     Fetches, cleans, and ingests live web data into the Resonance Memory.
     """
     
+    ALLOWED_SCHEMES = {"http", "https"}
+    BLOCKED_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+    
     def __init__(self, ingestion_engine: Optional[KnowledgeIngestion] = None):
         if ingestion_engine:
             self.ingestor = ingestion_engine
         else:
             # Connect to existing brain
             self.ingestor = KnowledgeIngestion(l2_dim=512)
+    
+    def _validate_url(self, url: str) -> bool:
+        """Validate URL to prevent SSRF attacks."""
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            return False
+        
+        if parsed.scheme not in self.ALLOWED_SCHEMES:
+            return False
+        
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        
+        if hostname.lower() in self.BLOCKED_HOSTS:
+            return False
+        
+        # Block private/internal IP ranges
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_link_local:
+                return False
+        except ValueError:
+            # hostname is a domain name, not an IP — that's fine
+            pass
+        
+        return True
             
     def fetch_page(self, url: str) -> Optional[str]:
         """Fetches and cleans text from a URL."""
+        if not self._validate_url(url):
+            print(f"❌ WebSensor: Blocked URL (SSRF prevention): {url}")
+            return None
+        
         print(f"🌐 WebSensor: Connecting to {url}...")
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'ResonanceAI/0.2.0 (Research Bot)'
             }
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code != 200:

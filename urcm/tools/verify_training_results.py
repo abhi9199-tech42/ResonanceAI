@@ -16,6 +16,14 @@ def verify_brain():
         print(f"❌ Failed to load brain: {e}")
         return
 
+    # Verify hierarchy structure exists
+    if not hasattr(engine, 'hierarchy') or not hasattr(engine.hierarchy, 'layer2'):
+        print("❌ Engine hierarchy/layer2 not available")
+        return
+    if not hasattr(engine.hierarchy.layer2, 'W_res'):
+        print("❌ W_res not available in layer2")
+        return
+
     print(f"✅ Brain Loaded. Dimensions: {engine.l2_dim}")
     print(f"📚 Vocabulary Size: {len(engine.concept_map)}")
     

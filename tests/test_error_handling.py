@@ -41,9 +41,12 @@ class TestErrorRecoverySystem:
     def create_dummy_state(self, dim=64, magnitude=1.0):
         vec = np.random.normal(0, 1, dim)
         vec = (vec / np.linalg.norm(vec)) * magnitude
+        rho = 0.8
+        chi = 0.5
+        mu = rho / chi
         return ResonanceState(
             resonance_vector=vec,
-            mu_value=1.0, rho_density=0.8, chi_cost=0.5,
+            mu_value=mu, rho_density=rho, chi_cost=chi,
             stability_score=1.0, oscillation_phase=0.0, timestamp=0.0
         )
 
@@ -84,7 +87,8 @@ class TestErrorRecoverySystem:
              assert not np.allclose(drifting_state.resonance_vector, recovered_state.resonance_vector)
         else:
             # It's possible it passed validation (rare but possible with random vectors in high dim if projected well)
-            pass
+            # In that case, verify the state is still valid
+            assert np.all(np.isfinite(recovered_state.resonance_vector))
 
     def test_oscillation_desync_recovery(self, recovery_system):
         """
@@ -113,15 +117,13 @@ class TestErrorRecoverySystem:
         """
         Property 9: System always returns a valid numerical state regardless of input.
         """
-        # Handle nan/inf in input generation if hypothesis generates them?
-        # st.floats usually gives valid floats. 
-        # But just in case, we filter in code or assume valid float inputs as per type hint.
-        
-        state = resonance_vector=vector
-        # Create state object properly
+        # Create state object with valid mu = rho/chi
+        rho = 0.8
+        chi = 0.5
+        mu = rho / chi
         state = ResonanceState(
             resonance_vector=vector,
-            mu_value=1.0, rho_density=0.8, chi_cost=0.5,
+            mu_value=mu, rho_density=rho, chi_cost=chi,
             stability_score=1.0, oscillation_phase=0.0, timestamp=0.0
         )
         

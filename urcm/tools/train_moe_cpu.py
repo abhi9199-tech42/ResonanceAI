@@ -118,6 +118,13 @@ def main():
     if args.target_updates:
         idx = 0
         n = len(pairs)
+        cos_before_map = {}
+        for q, a in pairs[:min(8, len(pairs))]:
+            fq = pipeline.process_text(q)
+            u = encoder.encode_path(fq)
+            y_pre, _, _ = mem.forward(u)
+            v_pre = encoder.encode_path(pipeline.process_text(f"{q} {a}"))
+            cos_before_map[q] = cos(y_pre, v_pre)
         while updates < args.target_updates:
             q, a = pairs[idx % n]
             fq = pipeline.process_text(q)
@@ -149,8 +156,8 @@ def main():
             u = encoder.encode_path(fq)
             v = encoder.encode_path(fqa)
             y0, _, _ = mem.forward(u)
-            y1 = y0
-            stats["pairs"].append({"q": q, "a": a, "cos_before": cos(y0, v), "cos_after": cos(y1, v)})
+            cos_before = cos_before_map.get(q, cos(y0, v))
+            stats["pairs"].append({"q": q, "a": a, "cos_before": cos_before, "cos_after": cos(y0, v)})
     else:
         for q, a in pairs:
             fq = pipeline.process_text(q)

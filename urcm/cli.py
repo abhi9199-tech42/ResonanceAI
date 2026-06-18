@@ -19,7 +19,7 @@ def cmd_detect(args):
     else:
         label = "LIKELY CORRECT" if result["confidence"] > args.threshold else "LIKELY HALLUCINATION"
         print(f"Confidence:     {result['confidence']:.3f}")
-        print(f"Raw similarity: {result['raw_similarity']:.3f}")
+        print(f"Raw similarity: {result.get('raw_cosine', 0):.3f}")
         print(f"Nearest match:  {result['nn_label']}")
         print(f"Verdict:        {label}")
 
@@ -28,7 +28,7 @@ def cmd_qa(args):
     """Answer a question using the URCM hippocampus."""
     from urcm.core.system import URCMSystem
     system = URCMSystem(resonance_dim=args.dim)
-    choices = [c.strip() for c in args.choices.split(",")] if args.choices else None
+    choices = [c.strip() for c in args.choices.split(",")] if args.choices else []
     result = system.solve_qa_right_brain(args.question, choices)
     if args.json:
         print(json.dumps(result, indent=2))
@@ -44,14 +44,15 @@ def cmd_benchmark(args):
     """Run hallucination detection benchmark vs S-BERT."""
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    if args.quick:
-        # Minimal smoke test: 3 QA pairs
-        print("Quick smoke test not yet implemented. Use full benchmark.")
-        return
     # Import and run the comprehensive benchmark
     from urcm.core.system import URCMSystem
-    from sentence_transformers import SentenceTransformer, util
-    from sklearn.metrics import roc_auc_score, average_precision_score, precision_recall_curve
+    try:
+        from sentence_transformers import SentenceTransformer, util
+        from sklearn.metrics import roc_auc_score, average_precision_score
+    except ImportError as e:
+        print(f"Missing optional dependency: {e}")
+        print("Install with: pip install resonanceai[benchmark]")
+        sys.exit(1)
 
     # Small test set for quick validation
     test_pairs = [
@@ -130,13 +131,12 @@ def main():
     # benchmark
     p = sub.add_parser("benchmark", help="Run quick benchmark vs S-BERT")
     p.add_argument("--dim", type=int, default=2048)
-    p.add_argument("--quick", action="store_true", help="Small smoke test")
     p.set_defaults(func=cmd_benchmark)
 
     args = parser.parse_args()
     if args.cmd is None:
         parser.print_help()
-        sys.exit(1)
+        sys.exit(0)
     args.func(args)
 
 

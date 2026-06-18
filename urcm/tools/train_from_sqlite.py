@@ -3,6 +3,7 @@ import os
 import sqlite3
 import numpy as np
 import pickle
+from typing import List, Optional
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from urcm.core.hierarchical_encoder import HierarchicalEncoder
 from urcm.core.phoneme_mapper import PhonemeFrequencyPipeline
@@ -172,7 +173,8 @@ def train(db_path: str, brain_path: str = "urcm_identity.pkl", l2_dim: int = 512
         "What do you use to cut paper?": ["knife","razor","box cutter","shears"],
         "Where do you keep milk cold?": ["freezer","icebox","cooler"],
     }
-    for q, a in rows + seed_pairs + paraphrase_pairs:
+    all_pairs = list({(q, a) for q, a in rows + seed_pairs + paraphrase_pairs})
+    for q, a in all_pairs:
         fq = pipeline.process_text(q)
         fqa = pipeline.process_text(f"{q} {a}")
         u_q = rpenc.encode_path(fq)
@@ -246,13 +248,16 @@ def train(db_path: str, brain_path: str = "urcm_identity.pkl", l2_dim: int = 512
         va = rpenc.encode_path(fa)
         vb = rpenc.encode_path(fb)
         for _ in range(2):
-            W = memory.deposit_attractor(W, va, va)
-            W = memory.deposit_attractor(W, vb, vb)
+            W = memory.deposit_attractor(W, va, vb)  # attract a to b
+            W = memory.deposit_attractor(W, vb, va)  # attract b to a
+            # repulsion: deposit negative target
+            W = memory.deposit_attractor(W, va, -vb)
+            W = memory.deposit_attractor(W, vb, -va)
     conn.close()
     # Optional: parallel, corpus, grammar can be ingested separately via WebSensor/KnowledgeIngestion
     rpenc.W_res = W
     def sigmoid(z):
-        return 1.0 / (1.0 + np.exp(-z))
+        return 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))
     X = []
     Y = []
     for q, a in seed_pairs:
@@ -263,9 +268,10 @@ def train(db_path: str, brain_path: str = "urcm_identity.pkl", l2_dim: int = 512
             c_path = pipeline.process_text(c)
             cs = rpenc.encode_path(c_path)
             cos = float(np.dot(qs, cs) / ((np.linalg.norm(qs) + 1e-9) * (np.linalg.norm(cs) + 1e-9)))
-            mu_q = float(np.linalg.norm(qs)) / (np.linalg.norm(qs) + 1e-9)
-            mu_c = float(np.linalg.norm(cs)) / (np.linalg.norm(cs) + 1e-9)
-            X.append([cos, mu_q, mu_c])
+            # mu_q/mu_c were constant ~1.0; use meaningful features instead
+            sparsity_q = float(np.abs(qs).sum() / (np.linalg.norm(qs) + 1e-9))
+            sparsity_c = float(np.abs(cs).sum() / (np.linalg.norm(cs) + 1e-9))
+            X.append([cos, sparsity_q, sparsity_c])
             Y.append(1.0 if c == a else 0.0)
     X = np.array(X)
     Y = np.array(Y)
@@ -298,6 +304,13 @@ def train(db_path: str, brain_path: str = "urcm_identity.pkl", l2_dim: int = 512
     best_margin = eval_margin(rpenc)
     best_alpha = rpenc.gate_alpha if hasattr(rpenc, "gate_alpha") else 1.0
     best_beta = rpenc.gate_beta if hasattr(rpenc, "gate_beta") else 1.0
+    # Save encoder state for restoration
+    best_W_res = rpenc.W_res.copy()
+    best_W_in = rpenc.W_in.copy()
+    best_W_out = rpenc.W_out.copy()
+    best_bias = rpenc.bias.copy()
+    best_gate_alpha = rpenc.gate_alpha
+    best_gate_beta = rpenc.gate_beta
     step = 0.3
     for _ in range(60):
         candidates = [
@@ -317,17 +330,28 @@ def train(db_path: str, brain_path: str = "urcm_identity.pkl", l2_dim: int = 512
                 best_margin = m
                 best_alpha = a_try
                 best_beta = b_try
+                best_W_res = rpenc.W_res.copy()
+                best_W_in = rpenc.W_in.copy()
+                best_W_out = rpenc.W_out.copy()
+                best_bias = rpenc.bias.copy()
+                best_gate_alpha = rpenc.gate_alpha
+                best_gate_beta = rpenc.gate_beta
                 improved = True
-        rpenc.gate_alpha = float(best_alpha)
-        rpenc.gate_beta = float(best_beta)
+        # Restore best state
+        rpenc.W_res = best_W_res
+        rpenc.W_in = best_W_in
+        rpenc.W_out = best_W_out
+        rpenc.bias = best_bias
+        rpenc.gate_alpha = float(best_gate_alpha)
+        rpenc.gate_beta = float(best_gate_beta)
         if not improved:
             step = step * 0.85
             if step < 0.05:
                 break
     data = {
         "l2_W_res": W,
-        "l2_W_in": None,
-        "l2_W_out": None,
+        "l2_W_in": rpenc.W_in,
+        "l2_W_out": rpenc.W_out,
         "concept_map": concept_map,
         "qa_lr_w": w,
     }
@@ -351,7 +375,7 @@ def train(db_path: str, brain_path: str = "urcm_identity.pkl", l2_dim: int = 512
         pickle.dump(weights, f)
 
 
-def auto_train(goals: list[str], whitelist_domains: list[str] = None, max_pages_per_goal: int = 1, text_limit: int = 5000, l2_dim: int = 512):
+def auto_train(goals: List[str], whitelist_domains: Optional[List[str]] = None, max_pages_per_goal: int = 1, text_limit: int = 5000, l2_dim: int = 512):
     if whitelist_domains is None:
         whitelist_domains = ["en.wikipedia.org", "wikipedia.org"]
     sensor = WebSensor()
@@ -359,6 +383,9 @@ def auto_train(goals: list[str], whitelist_domains: list[str] = None, max_pages_
         url = f"https://en.wikipedia.org/wiki/{topic.replace(' ', '_')}"
         if any(d in url for d in whitelist_domains):
             sensor.ingest_url(url)
+    # Now train on the ingested data
+    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "urcm_training.db")
+    train(db_path, l2_dim=l2_dim)
     return True
 
 if __name__ == "__main__":

@@ -46,7 +46,8 @@ class PhonemeFrequencyMapper:
         'ś', 'ṣ', 's', 'h',
         
         # Additional phonemes for broader coverage
-        'x', 'z', 'f', 'w'  # For non-Sanskrit languages
+        'x', 'z', 'f', 'w',  # For non-Sanskrit languages
+        'SIL'  # Word boundary / silence token
     }
     
     def __init__(self, frequency_dim: int = 24, smoothness_weight: float = 0.1):
@@ -115,6 +116,10 @@ class PhonemeFrequencyMapper:
             filtered_phonemes = [p for p in phonemes if p in self.phoneme_space]
             if filtered_phonemes:
                 filtered_groups[group_name] = filtered_phonemes
+        
+        # Ensure SIL gets a vector if it's in the phoneme space
+        if 'SIL' in self.phoneme_space and 'SIL' not in [p for ps in filtered_groups.values() for p in ps]:
+            filtered_groups['boundary'] = ['SIL']
         
         return filtered_groups
     
@@ -389,11 +394,10 @@ class TextToPhonemeConverter:
             # Check English/Standard
             elif char in self.english_map:
                 phonemes.append(self.english_map[char])
-            # Handle space/punctuation
+            # Handle space/punctuation — add word boundary token
             elif char in [' ', ',', '.', '-']:
-                 if phonemes and phonemes[-1] != 'a':
-                     # Optional: Add silence/neutral vowel
-                     pass 
+                 if phonemes and phonemes[-1] != 'SIL':
+                     phonemes.append('SIL')
             
             i += 1
             

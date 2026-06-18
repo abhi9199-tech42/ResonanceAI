@@ -26,8 +26,8 @@ class PerceptionModule:
         """
         # 1. Generate a "Raw Sensory Vector" (simulated by hashing image_id)
         seed = sum(ord(c) for c in image_id) * 12345
-        np.random.seed(seed % (2**32 - 1))
-        sensory_vec = np.random.randn(self.l2_dim)
+        rng = np.random.RandomState(seed % (2**32 - 1))
+        sensory_vec = rng.randn(self.l2_dim)
         sensory_vec = sensory_vec / np.linalg.norm(sensory_vec)
         
         # 2. If we have tags (Supervised Learning / Few-Shot),

@@ -52,7 +52,7 @@ def run_test():
         print("ERROR: No trained bottleneck found. Run train_bottleneck.py first.")
         return
 
-    checkpoint = torch.load(save_path, map_location="cpu")
+    checkpoint = torch.load(save_path, map_location="cpu", weights_only=True)
     bottleneck = URCMBottleneck(
         d_model=checkpoint["d_model"],
         resonance_dim=checkpoint["resonance_dim"],

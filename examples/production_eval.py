@@ -41,7 +41,7 @@ TEST_SET = [
 def generate_hallucinations_gpt2(questions):
     """Generate hallucinated answers using GPT-2."""
     from transformers import pipeline
-    gpt2 = pipeline("text-generation", model="distilgpt2", device_map=None)
+    gpt2 = pipeline("text-generation", model="distilgpt2")
     hallucinations = []
     for q, correct in questions:
         for _ in range(5):

@@ -86,7 +86,7 @@ Create a JSON file (e.g., `my_drone_pairs.json`) with the format above.
 ### 2. Run training
 
 ```bash
-python train_2048.py --data my_drone_pairs.json
+python train_2048.py  # pass your JSON pairs file path
 ```
 
 This will:
@@ -259,7 +259,7 @@ A: Yes. 32MB model, CPU-only, 0.2s per query. Tested on RPi 4.
 
 ```bash
 # Train
-python train_2048.py --data my_pairs.json
+python train_2048.py  # pass your JSON pairs file path
 
 # Evaluate
 python tests/production/run.py --report

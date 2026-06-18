@@ -15,7 +15,7 @@ def monitor():
     
     try:
         engine = ReasoningEngine()
-    except:
+    except Exception:
         print("Brain is locked/writing. Retrying...")
         return
 

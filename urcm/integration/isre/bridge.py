@@ -45,8 +45,13 @@ class IntentResonanceBridge:
         
         # 3. Calculate Chi (Transformation Cost from Context)
         if context_state.shape != intent_vector.shape:
-            # Resize context if dim mismatch (simple projection)
-            resized_context = np.resize(context_state, intent_vector.shape)
+            # Handle dimension mismatch: truncate or pad with zeros
+            target_dim = intent_vector.shape[0]
+            if context_state.shape[0] > target_dim:
+                resized_context = context_state[:target_dim]
+            else:
+                resized_context = np.zeros(target_dim, dtype=context_state.dtype)
+                resized_context[:context_state.shape[0]] = context_state
         else:
             resized_context = context_state
             

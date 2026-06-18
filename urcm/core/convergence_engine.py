@@ -1,8 +1,11 @@
 
+import logging
 import numpy as np
 from typing import List, Optional, Callable, Dict, Tuple
 from urcm.core.data_models import ResonanceState, ReasoningPath
 from urcm.core.theory import URCMTheory
+
+logger = logging.getLogger(__name__)
 
 class MuConvergenceEngine:
     """
@@ -52,13 +55,14 @@ class MuConvergenceEngine:
             mu_raw = URCMTheory.compute_mu(rho, chi)
             mu = mu_raw / (1.0 + abs(mu_raw))
             
-            # stability = mu
+            # stability = clamped mu
             stability = mu 
             
             # Return new state with computed metrics
+            # Store raw mu (rho/chi) for validation, clamped mu for stability
             return ResonanceState(
                 resonance_vector=state.resonance_vector,
-                mu_value=mu,
+                mu_value=mu_raw,
                 rho_density=rho,
                 chi_cost=chi,
                 stability_score=stability,
@@ -183,7 +187,7 @@ class MuConvergenceEngine:
                             termination_reason="Paradox Detected (Halting)"
                         )
                         completed_paths.append(new_path)
-                        print("💥 [PARADOX DETECTED] Logical resistance \u03c7 exploded! Resonance \u03bc collapsed to zero! Halting output automatically.")
+                        logger.warning("PARADOX DETECTED")
                         active_paths = []
                         new_candidates = []
                         break
@@ -195,13 +199,14 @@ class MuConvergenceEngine:
                     mu_raw = URCMTheory.compute_mu(rho, chi)
                     mu = mu_raw / (1.0 + abs(mu_raw))
                     
-                    # Create resolved state
+                    # Create resolved state - store raw mu (rho/chi) for validation, 
+                    # use clamped mu for ranking/comparison
                     next_state = ResonanceState(
                         resonance_vector=proposal.resonance_vector,
-                        mu_value=mu,
+                        mu_value=mu_raw,  # Store raw mu = rho/chi for validation
                         rho_density=rho,
                         chi_cost=chi,
-                        stability_score=mu, # Simplified
+                        stability_score=mu,  # Use clamped mu for scoring
                         oscillation_phase=proposal.oscillation_phase,
                         timestamp=proposal.timestamp
                     )

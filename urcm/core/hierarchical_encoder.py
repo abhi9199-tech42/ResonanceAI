@@ -15,6 +15,7 @@ from typing import Dict, List, Union, Tuple
 import numpy as np
 import os
 import pickle
+from urcm.core.safe_io import safe_load_pickle
 
 from urcm.core.resonance_encoder import ResonancePathEncoder
 from urcm.core.data_models import FrequencyPath
@@ -139,8 +140,7 @@ class HierarchicalEncoder:
             return
             
         try:
-            with open(path, "rb") as f:
-                data = pickle.load(f)
+            data = safe_load_pickle(path)
                 
             # Load Layer 1
             l1_data = data["layer1"]

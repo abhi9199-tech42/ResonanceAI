@@ -146,9 +146,18 @@ def train(epochs: int = 200, lr: float = 1e-3, device: str = "cpu"):
         bottleneck.eval()
         with torch.no_grad():
             _, mu_eval = bottleneck(hidden, mask)
-            threshold  = float(mu_eval.median())
-            preds      = (mu_eval > threshold).float()
-            acc        = float((preds == labels).float().mean())
+            # Find threshold that maximizes accuracy
+            best_thresh = 0.5
+            best_acc = 0.0
+            for thresh in np.linspace(0.0, 1.0, 101):
+                preds = (mu_eval > thresh).float()
+                acc = float((preds == labels).float().mean())
+                if acc > best_acc:
+                    best_acc = acc
+                    best_thresh = thresh
+            threshold = best_thresh
+            preds = (mu_eval > threshold).float()
+            acc = float((preds == labels).float().mean())
 
         if acc > best_acc:
             best_acc   = acc
@@ -165,7 +174,16 @@ def train(epochs: int = 200, lr: float = 1e-3, device: str = "cpu"):
     with torch.no_grad():
         _, mu_final = bottleneck(hidden, mask)
 
-    threshold = float(mu_final.median())
+    # Find best threshold on final mu
+    best_thresh = 0.5
+    best_acc = 0.0
+    for thresh in np.linspace(0.0, 1.0, 101):
+        preds = (mu_final > thresh).float()
+        acc = float((preds == labels).float().mean())
+        if acc > best_acc:
+            best_acc = acc
+            best_thresh = thresh
+    threshold = best_thresh
     bottleneck.mu_threshold = threshold
 
     print(f"\nBest training accuracy: {best_acc:.1%}")

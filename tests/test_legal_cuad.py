@@ -124,5 +124,4 @@ def test_cuad_legal_reasoning():
             f.write(f"   Stored: {res['predicted']}\n")
             f.write(f"   Target: {res['expected']}\n\n")
 
-    # Relax assertion
-    # assert accuracy >= 0.8
+    assert accuracy >= 0.8

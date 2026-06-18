@@ -25,13 +25,13 @@ class KnowledgeIngestion:
         # Load or Create Brain
         if os.path.exists(brain_path):
             print(f"Loading brain from {brain_path}...")
-            with open(brain_path, "rb") as f:
-                self.brain_data = pickle.load(f)
-                # Check dim
-                if self.brain_data["l2_W_res"].shape[0] != l2_dim:
-                    print(f"⚠️ Resizing Brain from {self.brain_data['l2_W_res'].shape[0]} to {l2_dim}")
-                    # Re-init
-                    self._init_fresh_brain()
+            from urcm.core.safe_io import safe_load_pickle
+            self.brain_data = safe_load_pickle(brain_path)
+            # Check dim
+            if self.brain_data["l2_W_res"].shape[0] != l2_dim:
+                print(f"⚠️ Resizing Brain from {self.brain_data['l2_W_res'].shape[0]} to {l2_dim}")
+                # Re-init
+                self._init_fresh_brain()
         else:
             print("Creating FRESH High-Capacity Brain...")
             self._init_fresh_brain()
@@ -83,8 +83,8 @@ class KnowledgeIngestion:
         hash_object = hashlib.md5(word.encode())
         seed = int(hash_object.hexdigest(), 16) % (2**32)
         
-        np.random.seed(seed)
-        vec = np.random.normal(0, 1, (self.l2_dim,))
+        rng = np.random.RandomState(seed)
+        vec = rng.normal(0, 1, (self.l2_dim,))
         vec = vec / np.linalg.norm(vec)
         
         self.concept_map[word] = vec

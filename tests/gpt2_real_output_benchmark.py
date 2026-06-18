@@ -164,7 +164,8 @@ def generate_response(
 ) -> str:
     torch.manual_seed(seed)
     random.seed(seed)
-    np.random.seed(seed)
+    # Use local RNG instead of global state
+    rng = np.random.RandomState(seed)
 
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     with torch.no_grad():

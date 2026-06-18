@@ -65,7 +65,9 @@ class TestURCMIntegration:
         assert final_mu > 0
         
         # 3. Check termination
-        assert path.termination_reason in ["Convergence (Δμ < ε)", "Max Steps Reached", "Dead End (No further states)"]
+        valid_reasons = ["Convergence", "Max Steps", "Dead End"]
+        assert any(reason in path.termination_reason for reason in valid_reasons), \
+            f"Unexpected termination reason: {path.termination_reason}"
 
     def test_system_self_validation(self, urcm_system):
         """

@@ -68,5 +68,4 @@ def test_raw_resonance_diagnostic():
         print("\n  VERDICT: Resonance works well on its own.")
         print("  START WITH: Gap 1 (replace BrocaArea) — rules can be stripped safely")
 
-    # Never fail — this is a diagnostic, not a correctness gate
-    assert True
+    assert 0 <= ok <= len(DATASET), f"Score {ok} out of range for {len(DATASET)} items"

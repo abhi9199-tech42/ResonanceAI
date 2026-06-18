@@ -353,6 +353,7 @@ def evaluate():
             c_vec = encode(pipeline, rpenc, c)
             sim   = float(np.dot(q_vec, c_vec) /
                           (np.linalg.norm(q_vec) * np.linalg.norm(c_vec) + 1e-9))
+            raw_scores.append(sim)
             if qa_lr_w is not None:
                 feats = _features(q_vec, c_vec)
                 scorer_dim = len(qa_lr_w)
@@ -361,4 +362,30 @@ def evaluate():
                 scored_scores.append(float(_sigmoid(float(qa_lr_w @ feats))))
             else:
                 scored_scores.append(sim)
+
+        raw_pred    = int(np.argmax(raw_scores))
+        scored_pred = int(np.argmax(scored_scores))
+        raw_ok    = raw_pred == answer_idx
+        scored_ok = scored_pred == answer_idx
+        ok_raw    += int(raw_ok)
+        ok_scored += int(scored_ok)
+
+        status_raw    = "OK" if raw_ok    else "MISS"
+        status_scored = "OK" if scored_ok else "MISS"
+        print(f"  Q: {question}")
+        print(f"    correct={choices[answer_idx]!r}")
+        print(f"    raw    pred={choices[raw_pred]!r}  [{status_raw}]")
+        print(f"    scored pred={choices[scored_pred]!r}  [{status_scored}]")
+
+    n = len(eval_set)
+    print(f"\n  Raw accuracy:    {ok_raw}/{n} ({100*ok_raw/n:.1f}%)")
+    print(f"  Scored accuracy: {ok_scored}/{n} ({100*ok_scored/n:.1f}%)")
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "eval":
+        evaluate()
+    else:
+        boost_and_score()
 

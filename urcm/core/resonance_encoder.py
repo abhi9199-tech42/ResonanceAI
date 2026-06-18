@@ -13,6 +13,7 @@ Wave Physics Integration:
 from typing import Optional, Dict, Any, Union, List, Tuple
 import numpy as np
 import time
+from urcm.core.safe_io import safe_load_pickle
 
 from urcm.core.data_models import FrequencyPath, ResonanceState
 from urcm.core.theory import URCMTheory
@@ -128,16 +129,16 @@ class ResonancePathEncoder:
         using pure NumPy for temporal integration.
         """
         # Random projection matrix from Input -> Resonance Space
-        np.random.seed(42)  # Deterministic initialization for consistency
+        rng = np.random.RandomState(42)  # Local RNG for deterministic initialization
         # SCALED INPUT WEIGHTS: 0.1 to improve Readout Signal-to-Noise Ratio
         # Previous 0.02 was too weak for W_out to detect x_t against history noise.
         # Saturation is handled by arctanh linearization.
-        self.W_in = np.random.normal(0, 0.1, (self.input_dim, self.resonance_dim)).astype(self.dtype)
+        self.W_in = rng.normal(0, 0.1, (self.input_dim, self.resonance_dim)).astype(self.dtype)
         
         # Recurrent weight matrix (Resonance -> Resonance)
         # FORCE ORTHOGONAL INITIALIZATION (The "Holy Grail" Fix)
         # Orthogonal matrices preserve norm, preventing chaos/vanishing gradients
-        H = np.random.randn(self.resonance_dim, self.resonance_dim)
+        H = rng.randn(self.resonance_dim, self.resonance_dim)
         Q, R = np.linalg.qr(H)
         
         # SCALED ORTHOGONAL: Scale by 0.95 (Fading Memory)
@@ -147,7 +148,7 @@ class ResonancePathEncoder:
         self.W_res = (Q * 0.95).astype(self.dtype)
         
         # Bias
-        self.bias = np.random.normal(0, 0.01, self.resonance_dim).astype(self.dtype)
+        self.bias = rng.normal(0, 0.01, self.resonance_dim).astype(self.dtype)
 
         # Decoder Weights (Resonance -> Input)
         # Simple inversion attempt (Pseudoinverse)
@@ -177,8 +178,7 @@ class ResonancePathEncoder:
         if os.path.exists(weight_path):
             try:
                 print(f"Loading trained weights from {weight_path}...")
-                with open(weight_path, "rb") as f:
-                    weights = pickle.load(f)
+                weights = safe_load_pickle(weight_path)
 
                 if weights["W_in"].shape == self.W_in.shape:
                     self.W_in = weights["W_in"]
@@ -210,14 +210,14 @@ class ResonancePathEncoder:
         Initialize weights for a lightweight Transformer-like attention mechanism.
         (Stub implementation for future expansion).
         """
-        np.random.seed(42)
+        rng = np.random.RandomState(42)
         # Simple Query/Key/Value projection simulation
         # W_q: Input -> hidden
         # W_k: Input -> hidden
         # W_v: Input -> Resonance
-        self.W_q = np.random.normal(0, 0.1, (self.input_dim, 32)).astype(self.dtype)
-        self.W_k = np.random.normal(0, 0.1, (self.input_dim, 32)).astype(self.dtype)
-        self.W_v = np.random.normal(0, 0.1, (self.input_dim, self.resonance_dim)).astype(self.dtype)
+        self.W_q = rng.normal(0, 0.1, (self.input_dim, 32)).astype(self.dtype)
+        self.W_k = rng.normal(0, 0.1, (self.input_dim, 32)).astype(self.dtype)
+        self.W_v = rng.normal(0, 0.1, (self.input_dim, self.resonance_dim)).astype(self.dtype)
         
     def _normalize_path(self, vectors: np.ndarray, target_len: int = 24) -> np.ndarray:
         """
@@ -844,11 +844,14 @@ class ResonancePathEncoder:
             new_targets = []
             
             for path in frequency_paths:
+                final_vec = self.get_state_trajectory(path)[-1]
+                rho = 0.1
+                chi = 1.0
                 final_state = ResonanceState(
-                    resonance_vector=self.get_state_trajectory(path)[-1],
-                    mu_value=0.0,
-                    rho_density=0.0,
-                    chi_cost=0.0,
+                    resonance_vector=final_vec,
+                    mu_value=rho/chi,
+                    rho_density=rho,
+                    chi_cost=chi,
                     stability_score=0.0,
                     oscillation_phase=0.0,
                     timestamp=time.time()

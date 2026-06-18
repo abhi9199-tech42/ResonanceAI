@@ -29,19 +29,5 @@ IDENTITY_CONCEPTS = {
     "bias": "Unwanted attractor skew."
 }
 
-# Basic Vocabulary (English -> Phonemes Approximation)
-# Note: In a real system, we'd use the TextToPhonemeConverter.
-# This list is for semantic grounding (Word -> Description/Meaning).
-# The system will learn: Word (Phonemes) <-> Meaning (Resonance State).
-BASIC_VOCABULARY = [
-    "hello", "hi", "who", "are", "you", "what", "is", "your", "name",
-    "i", "am", "urcm", "system", "resonance", "mesh",
-    "think", "thinking", "thought",
-    "stable", "stability", "energy", "minimize",
-    "yes", "no", "maybe",
-    "stop", "halt", "end",
-    "good", "bad", "happy", "sad" # Emotional/Energy states
-]
-
 def get_identity_prompt() -> str:
     return "I am URCM. I exist to resonate."

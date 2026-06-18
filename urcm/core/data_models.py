@@ -38,6 +38,10 @@ class FrequencyPath:
             raise ValueError("Smoothness score must be non-negative")
         if len(self.phoneme_mapping) != self.vectors.shape[0]:
             raise ValueError("Phoneme mapping length must match vector sequence length")
+        # Validate frequency dimension K (should be 16-32 for phonemes, 768 for BERT)
+        K = self.vectors.shape[1]
+        if not ((16 <= K <= 32) or K == 768):
+            raise ValueError(f"Frequency dimension K={K} must be in range [16, 32] or 768")
 
 
 @dataclass
@@ -61,8 +65,10 @@ class ResonanceState:
         # Ensure mu = rho / chi (with epsilon for stability)
         calculated_mu = self.rho_density / (self.chi_cost + 1e-9)
         if not np.isclose(self.mu_value, calculated_mu, rtol=1e-3):
-            # We allow slight variance for legacy reasons but enforce calculation in core logic
-            pass
+            raise ValueError(
+                f"ResonanceState mu mismatch: calculated={calculated_mu:.4f}, "
+                f"provided={self.mu_value:.4f}. mu must equal rho/chi."
+            )
 
 
 @dataclass

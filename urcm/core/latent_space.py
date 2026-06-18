@@ -25,10 +25,10 @@ class SemanticLatentSpace:
         # Initialize projection matrices (Random Orthogonal for now, effectively PCA-like placeholder)
         # E: Encoder (Input -> Latent)
         # D: Decoder (Latent -> Input)
-        np.random.seed(42)
+        rng = np.random.RandomState(42)
         
         # Random matrix
-        M = np.random.randn(input_dim, latent_dim)
+        M = rng.randn(input_dim, latent_dim)
         # QR decomposition to get orthogonal basis for more stable projection
         Q, _ = np.linalg.qr(M)
         

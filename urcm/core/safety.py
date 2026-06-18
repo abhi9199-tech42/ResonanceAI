@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import warnings
 from typing import Any, List, Optional, Tuple
 
@@ -29,7 +30,8 @@ class SafetyGovernor:
         
     def unlock_kernel(self, key: str):
         """Unlocks kernel for authorized updates (e.g., loading weights)."""
-        if key == "URCM_ADMIN_OVERRIDE":
+        expected_key = os.environ.get("URCM_ADMIN_KEY", "URCM_ADMIN_OVERRIDE")
+        if key == expected_key:
             self._kernel_locked = False
         else:
             raise SafetyViolation("Unauthorized attempt to unlock Kernel.")

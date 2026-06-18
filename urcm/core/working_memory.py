@@ -11,8 +11,8 @@ class Intent:
                  description: str, 
                  target_concept_name: Optional[str] = None,
                  target_vector: Optional[np.ndarray] = None,
-                 constraints: List[Any] = [],
-                 logic_gates: List[Dict] = [],
+                 constraints: Optional[List[Any]] = None,
+                 logic_gates: Optional[List[Dict]] = None,
                  priority: float = 1.0,
                  timeout_steps: int = 20):
         
@@ -20,8 +20,8 @@ class Intent:
         self.description = description
         self.target_concept_name = target_concept_name
         self.target_vector = target_vector
-        self.constraints = constraints
-        self.logic_gates = logic_gates
+        self.constraints = constraints if constraints is not None else []
+        self.logic_gates = logic_gates if logic_gates is not None else []
         self.priority = priority
         self.created_at = time.time()
         self.steps_taken = 0

@@ -100,16 +100,19 @@ class ErrorRecoverySystem:
         attractor = self.attractor_network.find_nearest_attractor(phase_threshold=1.0) # relaxed threshold
         
         if attractor:
-             # Reconstruct state from attractor
-             # Attractor has Phase Pattern. We need to convert it to Resonance Vector?
-             # Logic: Resonance Vector ~ Frequency * Amplitude. 
-             # Attractor phase pattern is unit magnitude complex or phase vector.
-             # We can use the phase pattern as the direction.
-             
-             # Assuming attractor.phase_pattern is a vector of phases or directions.
-             # In AttractorNetwork it is phases? No, "phase_pattern" in AttractorState.
-             # Let's check AttractorState definition.
-             pass
+             # Reconstruct state from attractor phase pattern
+             # Use the phase pattern as a directional signal for the resonance vector
+             phase_pattern = attractor.phase_pattern
+             if phase_pattern is not None and len(phase_pattern) > 0:
+                 # Convert phases to a unit direction vector via sin/cos embedding
+                 n_phases = min(len(phase_pattern), state.resonance_vector.shape[0])
+                 reconstructed = np.zeros(state.resonance_vector.shape[0], dtype=np.float64)
+                 for i in range(n_phases):
+                     reconstructed[i] = np.cos(float(phase_pattern[i]))
+                 norm = np.linalg.norm(reconstructed)
+                 if norm > 1e-8:
+                     reconstructed = reconstructed / norm
+                 return replace(state, resonance_vector=reconstructed, stability_score=0.3, mu_value=0.05)
         
         # If we can't find an attractor, return None (or maybe a neutral phoneme 'a' vector?)
         # Let's return a neutral state based on phoneme 'a'

@@ -169,10 +169,11 @@ class URCMBottleneck(nn.Module):
             dev_max = deviation.max()
             norm_dev = (deviation - dev_min) / (dev_max - dev_min + 1e-9)
         else:
-            norm_dev = torch.zeros(state.shape[0], device=state.device)
+            # Single sample: no batch to compare against, use neutral value
+            norm_dev = torch.full(state.shape[:1], 0.5, device=state.device)
 
         # ── μ: combine sparsity + deviation ──
-        # High sparsity AND high deviation from generic mean = coherent, specific signal
+        # High sparsity AND deviation from generic mean = coherent, specific signal
         mu = 0.6 * rho + 0.4 * norm_dev
         return mu.clamp(0.0, 1.0)
 
@@ -186,29 +187,9 @@ class URCMBottleneck(nn.Module):
 
     def score_text_batch(self, texts: list, tokenizer, device="cpu") -> dict:
         """
-        Convenience method: score a list of strings directly.
-        Returns dict with mu_scores and risk flags.
+        Score a list of strings directly.
+        WARNING: This requires the full transformer model to extract hidden states.
+        Pass the actual model's hidden states for meaningful scores.
         """
-        self.eval()
-        inputs = tokenizer(
-            texts,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=512,
-        ).to(device)
-
-        # Create fake hidden states from embedding (no full transformer needed for testing)
-        # In real use, pass actual transformer hidden states
-        B = inputs["input_ids"].shape[0]
-        T = inputs["input_ids"].shape[1]
-        fake_hidden = torch.randn(B, T, self.d_model, device=device)
-
-        with torch.no_grad():
-            _, mu_scores = self.forward(fake_hidden, inputs.get("attention_mask"))
-
-        return {
-            "mu_scores": mu_scores.tolist(),
-            "risk":      self.is_hallucination_risk(mu_scores).tolist(),
-            "threshold": self.mu_threshold,
-        }
+        raise NotImplementedError("score_text_batch requires actual transformer hidden states. "
+                                  "Use forward() with real hidden_states instead.")

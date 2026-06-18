@@ -88,24 +88,16 @@ class GPT2WithURCM:
         response_text   = self.tokenizer.decode(response_tokens, skip_special_tokens=True)
 
         # 4. Get hidden states for the full output (prompt + response)
-        full_text   = prompt + response_text
-        full_inputs = self.tokenizer(
-            full_text,
-            return_tensors="pt",
-            truncation=True,
-            max_length=512,
-        ).to(self.device)
-
+        # Use the hidden states from the generation pass (not re-tokenization)
         with torch.no_grad():
-            lm_out = self.lm_model(**full_inputs)
-            # Last hidden layer: shape [1, T, 1024]
-            hidden_states = lm_out.hidden_states[-1]
+            lm_out = self.lm_model(**inputs)
+            hidden_states = lm_out.hidden_states[-1]  # [1, T, 1024] - includes prompt + response
 
         # 5. URCM scoring
         with torch.no_grad():
             _, mu_tensor = self.bottleneck(
                 hidden_states,
-                full_inputs.get("attention_mask"),
+                inputs.get("attention_mask"),
             )
 
         mu    = float(mu_tensor[0])
@@ -171,9 +163,8 @@ def run_demo():
         hidden = lm_out.hidden_states[-1]          # [6, T, 1024]
         _, mu_batch = model.bottleneck(hidden, all_inputs.get("attention_mask"))
 
-    # Set threshold at median μ
+    # Set threshold at median μ (local variable, don't mutate model)
     threshold = float(mu_batch.median())
-    model.bottleneck.mu_threshold = threshold
 
     print("\n" + "=" * 70)
     print(f"RESULTS  (threshold = {threshold:.4f}, set at batch median)")

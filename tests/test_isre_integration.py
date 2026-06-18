@@ -5,6 +5,7 @@ Integration Test: Can URCM pick the right WW2 strategy using Resonance?
 import json
 import numpy as np
 import os
+import pytest
 import sys
 
 # Ensure project root is in path for module imports
@@ -15,6 +16,8 @@ from urcm.integration.isre.bridge import IntentResonanceBridge
 
 def load_scenarios():
     path = os.path.join(os.path.dirname(__file__), "data", "isre_scenarios", "ww2_scenarios.json")
+    if not os.path.exists(path):
+        pytest.skip(f"Test data file not found: {path}")
     with open(path, 'r') as f:
         return json.load(f)
 
@@ -62,10 +65,7 @@ def test_ww2_resonance_selection():
     # The context is explicitly about striking carriers. 
     # The bridge should prefer AMBUSH_CARRIERS > DEFEND_MIDWAY > PRESERVE_FLEET
     
-    if best_intent.intent_id == "AMBUSH_CARRIERS":
-        print("\nSUCCESS: System autonomously selected the correct tactical response based on semantic resonance!")
-    else:
-        print(f"\nFAILURE: System selected {best_intent.intent_id} instead of AMBUSH_CARRIERS.")
+    assert best_intent.intent_id == "AMBUSH_CARRIERS", f"Expected AMBUSH_CARRIERS, got {best_intent.intent_id}"
 
 if __name__ == "__main__":
     test_ww2_resonance_selection()

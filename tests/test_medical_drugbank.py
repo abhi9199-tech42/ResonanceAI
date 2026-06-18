@@ -109,5 +109,4 @@ def test_drugbank_interaction_logic():
             f.write(f"   Stored: {res['predicted']}\n")
             f.write(f"   Target: {res['expected']}\n\n")
 
-    # Relax assertion for now to allow data collection
-    # assert accuracy >= 0.8
+    assert accuracy >= 0.8

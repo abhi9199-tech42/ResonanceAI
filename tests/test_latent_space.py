@@ -20,9 +20,12 @@ class TestLatentSpaceManagement:
         
     def create_dummy_state(self, dim=64):
         vec = np.random.normal(0, 1, dim)
+        # mu must equal rho/chi
+        rho = 0.8
+        chi = 0.5
         return ResonanceState(
             resonance_vector=vec,
-            mu_value=1.0, rho_density=0.8, chi_cost=0.5,
+            mu_value=rho/chi, rho_density=rho, chi_cost=chi,
             stability_score=1.0, oscillation_phase=0.0, timestamp=0.0
         )
 
@@ -96,9 +99,14 @@ class TestLatentSpaceManagement:
         """
         Feature: urcm-reasoning-system, Property 8: Semantic Latent Space Round-Trip Consistency.
         """
-        state = self.create_dummy_state(dim=64)
         perfect_vec = latent_system.space.reconstruct(vector)
-        state.resonance_vector = perfect_vec
+        rho = 0.8
+        chi = 0.5
+        state = ResonanceState(
+            resonance_vector=perfect_vec,
+            mu_value=rho/chi, rho_density=rho, chi_cost=chi,
+            stability_score=1.0, oscillation_phase=0.0, timestamp=0.0
+        )
         
         _, loss, valid = latent_system.perform_round_trip(state)
         
@@ -111,8 +119,13 @@ class TestLatentSpaceManagement:
         """
         Property: Projection always produces correct latent dimensions.
         """
-        state = self.create_dummy_state(dim=64)
-        state.resonance_vector = vector
+        rho = 0.8
+        chi = 0.5
+        state = ResonanceState(
+            resonance_vector=vector,
+            mu_value=rho/chi, rho_density=rho, chi_cost=chi,
+            stability_score=1.0, oscillation_phase=0.0, timestamp=0.0
+        )
         
         z = latent_system.space.project(state)
         assert z.shape == (16,)
@@ -123,8 +136,13 @@ class TestLatentSpaceManagement:
         """
         Property: Reconstruction loss is finite and non-negative.
         """
-        state = self.create_dummy_state(dim=64)
-        state.resonance_vector = vector
+        rho = 0.8
+        chi = 0.5
+        state = ResonanceState(
+            resonance_vector=vector,
+            mu_value=rho/chi, rho_density=rho, chi_cost=chi,
+            stability_score=1.0, oscillation_phase=0.0, timestamp=0.0
+        )
         
         _, loss, _ = latent_system.perform_round_trip(state)
         
@@ -137,7 +155,7 @@ class TestLatentSpaceManagement:
         # Loss = |x - x_hat|. Max loss is if x_hat = -x (2*norm) or x_hat=0 (norm).
         # We just check it's not exploding.
         assert loss < 1000.0 # Reasonable bound for inputs in [-1, 1] range (max norm 64)
-
+    
     @given(arrays(dtype=np.float64, shape=(64,), elements=st.floats(min_value=-10, max_value=10)))
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow], max_examples=20)
     def test_projection_reconstruction_idempotence(self, latent_system, vector):
@@ -146,8 +164,13 @@ class TestLatentSpaceManagement:
         P(R(z)) == z  where z = P(x)
         This ensures that the reconstruction lies exactly in the subspace defined by the projection.
         """
-        state = self.create_dummy_state(dim=64)
-        state.resonance_vector = vector
+        rho = 0.8
+        chi = 0.5
+        state = ResonanceState(
+            resonance_vector=vector,
+            mu_value=rho/chi, rho_density=rho, chi_cost=chi,
+            stability_score=1.0, oscillation_phase=0.0, timestamp=0.0
+        )
         
         # First pass: x -> z
         z1 = latent_system.space.project(state)
@@ -156,9 +179,12 @@ class TestLatentSpaceManagement:
         reconstructed_vec = latent_system.space.reconstruct(z1)
         
         # Second pass: x' -> z'
-        state_recon = self.create_dummy_state(dim=64)
-        state_recon.resonance_vector = reconstructed_vec
-        z2 = latent_system.space.project(state_recon)
+        reconstructed_state = ResonanceState(
+            resonance_vector=reconstructed_vec,
+            mu_value=rho/chi, rho_density=rho, chi_cost=chi,
+            stability_score=1.0, oscillation_phase=0.0, timestamp=0.0
+        )
+        z2 = latent_system.space.project(reconstructed_state)
         
         # z1 and z2 should be identical (within float precision) because x' is constructed from the basis of P
         assert np.allclose(z1, z2, atol=1e-5), "Latent representation is not stable under reconstruction-projection loop"
@@ -170,8 +196,13 @@ class TestLatentSpaceManagement:
         Property: Validation flag aligns with the mathematical definition of mu_threshold.
         Logic: valid = (1 - (loss/energy)) >= threshold
         """
-        state = self.create_dummy_state(dim=64)
-        state.resonance_vector = vector
+        rho = 0.8
+        chi = 0.5
+        state = ResonanceState(
+            resonance_vector=vector,
+            mu_value=rho/chi, rho_density=rho, chi_cost=chi,
+            stability_score=1.0, oscillation_phase=0.0, timestamp=0.0
+        )
         
         _, loss, valid = latent_system.perform_round_trip(state)
         

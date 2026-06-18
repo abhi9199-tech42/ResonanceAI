@@ -19,17 +19,18 @@ def download_file(url, filename):
         start_idx = data.find(start_marker)
         end_idx = data.find(end_marker)
         
-        if start_idx != -1:
-            data = data[start_idx + len(start_marker):]
-        if end_idx != -1:
-            data = data[:end_idx]
-            
-        # Save
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(data)
-            
-        size_kb = os.path.getsize(filename) / 1024
-        print(f"✅ Saved to {filename} ({size_kb:.2f} KB)")
+         if start_idx != -1:
+             data = data[start_idx + len(start_marker):].lstrip('\n')
+         if end_idx != -1:
+             data = data[:end_idx]
+             
+         # Save
+         with open(filename, 'w', encoding='utf-8') as f:
+             f.write(data)
+             f.flush()
+             
+         size_kb = len(data) / 1024
+         print(f"✅ Saved to {filename} ({size_kb:.2f} KB)")
         
     except Exception as e:
         print(f"❌ Error: {e}")

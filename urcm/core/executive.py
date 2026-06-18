@@ -195,7 +195,7 @@ class ExecutiveController:
                 if active_intent.target_vector is not None:
                     goal_vec = active_intent.target_vector
                     pr = active_intent.priority if isinstance(active_intent.priority, (int, float)) else 1.0
-                    constraints.append((active_intent.target_vector, -5.0 * pr))
+                    constraints.append((active_intent.target_vector, 5.0 * pr))
                 logic_gates.extend(active_intent.logic_gates)
                 
             # 3. Execute Step (Right Brain Associative Leap)

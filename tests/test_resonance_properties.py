@@ -22,9 +22,9 @@ class TestResonanceProperties:
     @pytest.fixture
     def synthetic_path(self):
         """Creates a synthetic frequency path for testing."""
-        np.random.seed(101)
+        rng = np.random.RandomState(101)
         # Create a sequence of 10 vectors of dimension 24
-        vectors = np.random.normal(0, 1, (10, 24))
+        vectors = rng.normal(0, 1, (10, 24))
         # Ensure smooth transitions for checking smoothness score
         vectors = np.cumsum(vectors, axis=0)
         vectors = vectors / np.max(np.abs(vectors)) # Normalize to avoid explosion

@@ -18,8 +18,8 @@ class OscillatoryGating:
         # We assume the global rhythm g(t) produces a 2D signal [sin(phase), cos(phase)]
         # to capture full cyclic dynamics throughout the network.
         # W_g maps this 2D rhythm to the resonance dimension.
-        np.random.seed(42)  # Deterministic initialization
-        self.W_g = np.random.normal(0, 0.5, (resonance_dim, 2))
+        rng = np.random.RandomState(42)
+        self.W_g = rng.normal(0, 0.5, (resonance_dim, 2))
         self.bias = np.zeros(resonance_dim) # Start neutral
         
     def get_global_rhythm(self) -> np.ndarray:

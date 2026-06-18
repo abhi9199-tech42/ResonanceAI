@@ -11,7 +11,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Kriti",
     license="Apache 2.0",
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests", "tests.*"]),
     python_requires=">=3.8",
     install_requires=[
         "numpy>=1.21.0",

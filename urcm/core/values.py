@@ -142,6 +142,7 @@ class ValueSystem:
         # Derivative of Cosine Similarity w.r.t state x:
         # d/dx (x . a / |x||a|) = (a - x(x.a)/|x|^2) / |x||a|
         # Simplified: It points towards the axiom 'a'.
+        state_unit = state_vector / norm
         
         for name, axiom_vec in self.axioms.items():
             axiom_norm = np.linalg.norm(axiom_vec)
@@ -154,6 +155,6 @@ class ValueSystem:
             # Simple direction:
             # If Good (+), pull towards axiom
             # If Bad (-), push away from axiom
-            grad += weight * (axiom_unit - state_vector) # Simple attractor/repulsor
+            grad += weight * (axiom_unit - state_unit)
             
         return grad

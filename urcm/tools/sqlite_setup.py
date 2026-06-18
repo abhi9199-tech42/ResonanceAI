@@ -3,6 +3,8 @@ import sqlite3
 
 
 def ensure_dir(path: str):
+    if not path:
+        return
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -58,7 +60,7 @@ def setup(db_path: str):
         ("What protects eyes from bright sun?", "sunglasses"),
         ("What cleans the floor with water?", "mop"),
     ]
-    cur.executemany("INSERT INTO qa(question, answer) VALUES (?, ?)", qa_seed)
+    cur.executemany("INSERT OR IGNORE INTO qa(question, answer) VALUES (?, ?)", qa_seed)
     syn_seed = [
         ("paper towel", "towel"),
         ("television", "tv"),

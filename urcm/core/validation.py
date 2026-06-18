@@ -78,27 +78,29 @@ class DataValidation:
                 return False
             
             # Check μ value (should be finite and positive for stable states)
-            if not isinstance(state.mu_value, (int, float)) or not np.isfinite(state.mu_value):
+            if not np.isscalar(state.mu_value) or not np.isfinite(state.mu_value):
+                return False
+            if float(state.mu_value) <= 0:
                 return False
 
             # Check rho_density (should be [0, 1])
-            if not isinstance(state.rho_density, (int, float)) or not (0.0 <= state.rho_density <= 1.0):
+            if not np.isscalar(state.rho_density) or not (0.0 <= float(state.rho_density) <= 1.0):
                 return False
 
             # Check chi_cost (should be >= 0)
-            if not isinstance(state.chi_cost, (int, float)) or state.chi_cost < 0:
+            if not np.isscalar(state.chi_cost) or float(state.chi_cost) < 0:
                 return False
             
             # Check stability score
-            if not isinstance(state.stability_score, (int, float)) or not np.isfinite(state.stability_score):
+            if not np.isscalar(state.stability_score) or not np.isfinite(state.stability_score):
                 return False
             
             # Check oscillation phase constraints [0, 2π]
-            if not (0 <= state.oscillation_phase <= 2 * np.pi):
+            if not np.isscalar(state.oscillation_phase) or not (0 <= float(state.oscillation_phase) <= 2 * np.pi):
                 return False
             
             # Check timestamp
-            if not isinstance(state.timestamp, (int, float)) or state.timestamp < 0:
+            if not np.isscalar(state.timestamp) or float(state.timestamp) < 0:
                 return False
             
             # Check for NaN or infinite values in resonance vector
@@ -216,12 +218,12 @@ class DataValidation:
     def validate_mu_value(mu: float) -> bool:
         """Ensure μ value is within valid range and mathematically sound."""
         try:
-            if not isinstance(mu, (int, float)):
+            if not np.isscalar(mu):
                 return False
             if not np.isfinite(mu):
                 return False
             # μ = ρ/χ should be positive for meaningful semantic density
-            if mu <= 0:
+            if float(mu) <= 0:
                 return False
             return True
         except Exception:

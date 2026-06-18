@@ -76,8 +76,8 @@ class GeometricMemory:
         current_projection = np.dot(u64, W64)
         error_0            = linear_target - current_projection
 
-        # Scale factor capped to prevent runaway updates
-        scale  = min(cycles, 100) / norm_u_sq   # cap effective cycles at 100
+        # Scale factor for rank-1 update
+        scale  = cycles / norm_u_sq
         update = np.outer(u64, error_0) * scale
         W_updated = np.clip(W64 + update, -5.0, 5.0).astype(W_res.dtype)
 
@@ -163,4 +163,6 @@ class GeometricMemory:
 
     def check_capacity(self) -> float:
         """Returns percentage of capacity used."""
+        if self.capacity_limit <= 0:
+            return 0.0
         return self.deposited_count / self.capacity_limit

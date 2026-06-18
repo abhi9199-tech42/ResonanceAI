@@ -26,12 +26,13 @@ def paraphrase(question: str) -> list:
     """
     Generate 5 paraphrases of a question using simple templates.
     No external model needed — pure string manipulation.
+    All paraphrases end with '?' consistently.
     """
-    q = question.strip().rstrip("?")
+    q = question.strip().rstrip("?").rstrip(".")
     return [
-        question,
+        q + "?",
         f"Can you tell me: {q}?",
-        f"I would like to know: {q}.",
+        f"I would like to know: {q}?",
         f"Please answer this: {q}?",
         f"According to facts, {q.lower()}?",
     ]
@@ -66,7 +67,7 @@ class URCMConsistencyDetector:
             "urcm_bottleneck_trained.pt"
         )
         if os.path.exists(save_path):
-            ckpt = torch.load(save_path, map_location="cpu")
+            ckpt = torch.load(save_path, map_location="cpu", weights_only=True)
             self.bottleneck.load_state_dict(ckpt["state_dict"])
             print(f"  Loaded trained bottleneck weights")
         else:

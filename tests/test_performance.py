@@ -97,7 +97,7 @@ class TestComputationalEfficiency:
             float64_size = freq_vector.shape[0] * 8
             memory_savings = (float64_size - float32_size) / float64_size
             
-            assert memory_savings == 0.5, "float32 should save 50% memory vs float64"
+            assert abs(memory_savings - 0.5) < 1e-9, f"float32 should save 50% memory vs float64, got {memory_savings}"
     
     @given(st.lists(st.integers(min_value=64, max_value=512), min_size=5, max_size=10))
     @settings(max_examples=10)

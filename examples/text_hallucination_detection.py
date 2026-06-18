@@ -45,6 +45,6 @@ for text in hallucinated:
 
 print("\n--- Raw output example ---")
 result = system.detect_hallucination("paper towel", top_k=3)
-for key in ["confidence", "raw_similarity", "nn_label", "resonance_norm", "input_length"]:
+for key in ["confidence", "raw_cosine", "nn_label", "resonance_norm", "input_length"]:
     print(f"  {key}: {result[key]}")
 print(f"  top_k_labels: {result['top_k_labels']}")

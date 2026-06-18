@@ -71,8 +71,8 @@ class WavePhysicsMerger:
         Phase coupling matrix between wave bands.
         Small matrix: O(B^2) where B = num_bands << D.
         """
-        np.random.seed(42)
-        C = np.random.randn(self.num_bands, self.num_bands) * 0.1
+        rng = np.random.RandomState(42)
+        C = rng.randn(self.num_bands, self.num_bands) * 0.1
         C = (C + C.T) / 2  # symmetric coupling
         # Normalize eigenvalues to [0, 1) for stability
         eigvals = np.linalg.eigvalsh(C)

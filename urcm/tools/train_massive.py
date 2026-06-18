@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from urcm.core.reasoning import ReasoningEngine
 from urcm.core.sanskrit_bridge import SanskritBridge
 
-def train_from_file(file_path: str):
+def train_from_file(file_path: str, clean_slate: bool = False):
     """
     Ingests a text file and performs massive training on the URCM Brain.
     Uses Hebbian learning to associate sequential concepts.
@@ -24,11 +24,11 @@ def train_from_file(file_path: str):
     # Initialize Engine (Auto-creates 1024-dim brain if missing)
     engine = ReasoningEngine()
     
-    # ⚠️ CRITICAL FIX: Zero out W_res for clean slate learning
-    # Random initialization (ESN style) is good for chaos, but bad for rote memorization.
-    # For massive training, we want to learn specific transitions, not filter noise.
-    print("🧹 Wiping W_res to Zero for Tabula Rasa learning...")
-    engine.hierarchy.layer2.W_res = np.zeros((engine.l2_dim, engine.l2_dim))
+    if clean_slate:
+        print("🧹 Wiping W_res to Zero for Tabula Rasa learning...")
+        engine.hierarchy.layer2.W_res = np.zeros((engine.l2_dim, engine.l2_dim))
+    else:
+        print("🔄 Preserving existing W_res weights.")
     
     bridge = SanskritBridge()
     
@@ -245,7 +245,10 @@ def train_from_file(file_path: str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python urcm/tools/train_massive.py <path_to_text_file>")
+        print("Usage: python urcm/tools/train_massive.py <path_to_text_file> [--clean-slate]")
         print("Example: python urcm/tools/train_massive.py corpus.txt")
+        print("  --clean-slate  Wipe W_res before training (destroys prior learning)")
     else:
-        train_from_file(sys.argv[1])
+        clean_slate = "--clean-slate" in sys.argv
+        file_path = sys.argv[1]
+        train_from_file(file_path, clean_slate=clean_slate)

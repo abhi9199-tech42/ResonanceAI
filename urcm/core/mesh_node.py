@@ -83,10 +83,10 @@ class MeshNode:
 
         return ResonanceState(
             resonance_vector=vec,
-            mu_value=mu,
+            mu_value=mu_raw,  # Store raw mu = rho/chi for validation
             rho_density=rho,
             chi_cost=chi,
-            stability_score=mu,
+            stability_score=mu,  # Use clamped mu for scoring
             oscillation_phase=self._phase,
             timestamp=time.time(),
         )

@@ -230,17 +230,17 @@ class TestMemoryAugmentedAttention:
 
     def test_associated_retrieval(self):
         """After depositing key→value, reading near key should be closer to value than noise."""
-        np.random.seed(7)
-        key = np.random.randn(self.resonance_dim).astype(np.float32)
+        rng = np.random.RandomState(7)
+        key = rng.randn(self.resonance_dim).astype(np.float32)
         key /= np.linalg.norm(key)
-        value = np.random.randn(self.resonance_dim).astype(np.float32)
+        value = rng.randn(self.resonance_dim).astype(np.float32)
         value /= np.linalg.norm(value)
 
         for _ in range(5):  # deposit multiple times to strengthen
             self._write(key, value)
 
         retrieved = self._read(key, steps=20)
-        noise = np.random.randn(self.resonance_dim).astype(np.float32)
+        noise = rng.randn(self.resonance_dim).astype(np.float32)
         retrieved_noise = self._read(noise, steps=20)
 
         sim_correct = float(np.dot(retrieved, value) / (np.linalg.norm(retrieved) * np.linalg.norm(value) + 1e-9))

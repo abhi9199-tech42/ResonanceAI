@@ -12,6 +12,8 @@ import time
 import functools
 from typing import List, Optional, Dict, Any, Tuple, Callable
 
+from urcm.core.safe_io import safe_load_pickle
+
 from urcm.core.data_models import (
     PhonemeSequence, FrequencyPath, ResonanceState, 
     AttractorState, ReasoningPath
@@ -76,11 +78,10 @@ class URCMSystem:
 
             if os.path.exists(cache_path):
                 print(f"[URCM] Loading cached converted weights from {cache_path}")
-                with open(cache_path, "rb") as f:
-                    encoder_pretrained = pickle.load(f)
-                    encoder_pretrained.pop("qa_lr_w", None)
-                    encoder_pretrained.pop("hippocampus", None)
-                    encoder_pretrained.pop("metadata", None)
+                encoder_pretrained = safe_load_pickle(cache_path)
+                encoder_pretrained.pop("qa_lr_w", None)
+                encoder_pretrained.pop("hippocampus", None)
+                encoder_pretrained.pop("metadata", None)
             else:
                 print(f"[URCM] No cached weights found. Downloading {load_pretrained}...")
                 pretrained_all = download_and_convert(
@@ -167,8 +168,7 @@ class URCMSystem:
         weight_path = os.path.join(root_dir, "urcm_weights.pkl")
         if os.path.exists(weight_path):
             try:
-                with open(weight_path, "rb") as f:
-                    wdata = pickle.load(f)
+                wdata = safe_load_pickle(weight_path)
                 if self.qa_w is None:
                     self.qa_w = wdata.get("qa_lr_w", None)
                 if not self.hippocampus:
@@ -178,15 +178,14 @@ class URCMSystem:
                         print(f"[SUCCESS] Loaded {len(h_data)} hippocampus entries.")
             except Exception as e:
                 print(f"[WARNING] Could not load extra brain data: {e}")
-                self.qa_w = self.qa_w  # preserve pretrained value
+                pass  # preserve pretrained value
                 
         # Load concept map for the convergence engine
         concept_map = {}
         identity_path = os.path.join(root_dir, "urcm_identity.pkl")
         if os.path.exists(identity_path):
             try:
-                with open(identity_path, "rb") as f:
-                    idata = pickle.load(f)
+                idata = safe_load_pickle(identity_path)
                 concept_map = idata.get("concept_map", {})
             except Exception as e:
                 print(f"[WARNING] Could not load concept map from identity file: {e}")
@@ -751,11 +750,18 @@ class URCMSystem:
             else:
                 mix = a * cs.resonance_vector + (1 - a) * qs.resonance_vector
             mix = mix / (np.linalg.norm(mix) + 1e-9)
+            # Compute proper rho/chi for the mixed state
+            rho = URCMTheory.calculate_rho(mix)
+            # For chi, we'd need a reference state - use the generic centroid as baseline
+            g = self.get_generic_centroid()
+            chi = URCMTheory.calculate_chi(mix, g)
+            mu_raw = URCMTheory.compute_mu(rho, chi)
+            
             final_state = ResonanceState(
                 resonance_vector=mix,
-                mu_value=max(0.0, min(1.0, initial_state.mu_value + (0.5 if right else (-0.5 if wrong else 0.0)))),
-                rho_density=initial_state.rho_density,
-                chi_cost=initial_state.chi_cost,
+                mu_value=mu_raw,
+                rho_density=rho,
+                chi_cost=chi,
                 stability_score=initial_state.stability_score,
                 oscillation_phase=initial_state.oscillation_phase,
                 timestamp=initial_state.timestamp
@@ -780,6 +786,14 @@ class URCMSystem:
         finally:
             self.engine.convergence_epsilon = prev_epsilon
         self.status["processed_count"] += 1
+        if not results:
+            return ReasoningPath(
+                initial_state=final_state,
+                final_state=final_state,
+                intermediate_states=[],
+                mu_trajectory=[final_state.mu_value],
+                termination_reason="Dead End (No further states)"
+            )
         best = results[0]
         self.status["metrics_history"].append({
             "mu": best.final_state.mu_value,
@@ -941,12 +955,15 @@ class URCMSystem:
         """Helper to package a raw vector into a ResonanceState."""
         # Normalize to keep on semantic manifold
         new_vec = new_vec / (np.linalg.norm(new_vec) + 1e-9)
+        # Use small positive values that satisfy mu = rho/chi
+        rho = 0.1
+        chi = 1.0
         
         return ResonanceState(
             resonance_vector=new_vec,
-            mu_value=0.0, # Will be calculated by engine
-            rho_density=0.0, 
-            chi_cost=0.0,
+            mu_value=rho/chi,
+            rho_density=rho,
+            chi_cost=chi,
             stability_score=0.0,
             oscillation_phase=self.gating.phase,
             timestamp=time.time()

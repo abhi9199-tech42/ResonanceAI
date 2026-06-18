@@ -61,12 +61,7 @@ def test_bridge_integration():
     # Note: Since our phoneme mapper is random/hashing based (unless learned), 
     # this might be noisy, but 'midway' appears in both context and intent A.
     
-    if mu_rel > mu_irr:
-        print("\nSUCCESS: Relevant intent resonated more strongly.")
-    else:
-        print("\nWARNING: Relevant intent did not resonate more strongly.")
-        print("This is expected if the phoneme mapper is not yet semantically trained,")
-        print("or if the text overlap is insufficient.")
+    assert mu_rel > mu_irr, f"Relevant intent should resonate more: DEFEND={mu_rel:.4f} vs COOK={mu_irr:.4f}"
         
 if __name__ == "__main__":
     test_bridge_integration()

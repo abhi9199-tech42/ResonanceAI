@@ -217,21 +217,7 @@ class MeshNetwork:
         if not node_list:
             return 0.0
 
-        # Collect signals from all active nodes
-        signals: dict = {n.node_id: n.broadcast_signal() for n in node_list}
-
-        # Each node receives signals from its neighbours
-        for node in node_list:
-            neighbour_signals = [
-                signals[nb.node_id]
-                for nb in node.neighbors
-                if nb.node_id in signals and nb.is_active
-            ]
-            # broadcast_signal returns int (count), not the signal dict itself
-            # We need the actual signal payloads — re-gather properly
-            pass
-
-        # Proper gather: collect signal dicts from active nodes
+        # Collect signal dicts from active nodes
         signal_map: dict = {}
         for node in node_list:
             signal_map[node.node_id] = {

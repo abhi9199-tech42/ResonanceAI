@@ -26,9 +26,6 @@ class SafeMathVisitor(ast.NodeVisitor):
         for name in dir(math):
             if not name.startswith("_"):
                 self.allowed_functions[f"math.{name}"] = getattr(math, name)
-                
-        # Add print to allowed functions
-        self.allowed_functions['print'] = print
 
     def visit_Call(self, node):
         # Allow calling functions in the allowed list
@@ -40,8 +37,8 @@ class SafeMathVisitor(ast.NodeVisitor):
              if isinstance(node.func.value, ast.Name) and node.func.value.id == "math":
                  pass # Safe math call
              else:
-                 # Check if the method is on a safe object type (e.g. list.append)
-                 pass # We allow method calls on objects generally, assuming objects themselves are safe
+                 # Block all other attribute-based method calls for security
+                 raise SecurityError(f"Method calls on arbitrary objects are not allowed.")
         self.generic_visit(node)
 
     def visit_Import(self, node):
@@ -84,7 +81,6 @@ class SymbolicEngine:
             'sorted': sorted, 'reversed': reversed,
             'all': all, 'any': any,
             'True': True, 'False': False, 'None': None,
-            'print': print 
         })
         
     def _execute_with_timeout(self, code_str: str, mode: str = "eval") -> Tuple[bool, Any, str]:
@@ -119,7 +115,7 @@ class SymbolicEngine:
             except Exception as e:
                 result_container["error"] = str(e)
                 
-        thread = threading.Thread(target=target)
+        thread = threading.Thread(target=target, daemon=True)
         thread.start()
         thread.join(timeout=self.timeout_seconds)
         

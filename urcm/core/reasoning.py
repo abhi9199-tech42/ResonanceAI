@@ -23,8 +23,8 @@ class ReasoningEngine:
             print(f"[Reasoning] ⚠️ Brain file '{brain_path}' not found. Initializing NEW random brain.")
             self._init_random_brain()
         else:
-            with open(brain_path, "rb") as f:
-                self.brain_data = pickle.load(f)
+            from urcm.core.safe_io import safe_load_pickle
+            self.brain_data = safe_load_pickle(brain_path)
             
         self.l2_dim = self.brain_data["l2_W_res"].shape[0]
         self.hierarchy = HierarchicalEncoder(l2_res_dim=self.l2_dim)
@@ -917,82 +917,3 @@ class ReasoningEngine:
         print(f"🕉️ Structured Thought: {structured_thought}")
         sanskrit_trajectory.append(f"[Structure]: {structured_thought}")
         return sanskrit_trajectory
-
-if __name__ == "__main__":
-    eng = ReasoningEngine()
-    trips = [
-        ("self","other","good","bad"),
-        ("other","self","bad","good"),
-        ("order","chaos","good","bad"),
-        ("chaos","order","bad","good"),
-        ("exist","change","order","chaos"),
-        ("change","exist","chaos","order"),
-        ("self","other","order","chaos"),
-        ("other","self","chaos","order"),
-        ("good","bad","order","chaos"),
-        ("bad","good","chaos","order"),
-        ("good","order","bad","chaos"),
-        ("bad","chaos","good","order"),
-        ("self","good","other","bad"),
-        ("other","bad","self","good"),
-        ("exist","order","change","chaos"),
-        ("change","chaos","exist","order"),
-        ("self","exist","other","change"),
-        ("other","change","self","exist"),
-        ("good","self","bad","other"),
-        ("order","self","chaos","other"),
-    ]
-    seqs = [
-        ["exist","change"],
-        ["change","order"],
-        ["order","good"],
-        ["chaos","bad"],
-        ["self","other"],
-        ["good","order"],
-        ["bad","chaos"],
-        ["exist","order"],
-        ["other","self"],
-        ["change","chaos"],
-        ["order","self"],
-        ["chaos","other"],
-        ["self","good"],
-        ["other","bad"],
-        ["good","self"],
-        ["bad","other"],
-        ["exist","self"],
-        ["exist","good"],
-        ["change","bad"],
-        ["order","change"],
-        ["exist","change","order"],
-        ["order","good","self"],
-        ["chaos","bad","other"],
-        ["self","exist","good"],
-        ["other","change","chaos"],
-    ]
-    def topn(word, k=5):
-        v = eng.get_concept_vector(word)
-        if v is None:
-            return []
-        sims = []
-        for w, u in eng.concept_map.items():
-            n1 = np.linalg.norm(v) + 1e-9
-            n2 = np.linalg.norm(u) + 1e-9
-            sims.append((w, float(np.dot(v, u) / (n1 * n2))))
-        sims.sort(key=lambda x: x[1], reverse=True)
-        return [w for w, _ in sims[:k]]
-    targets = ["good","bad","order","chaos","self","other"]
-    before_a = eng.evaluate_analogies(trips)
-    before_t = eng.evaluate_transitions(seqs)
-    print("BEFORE_ANALOGY", before_a)
-    print("BEFORE_TRANS", before_t)
-    for t in targets:
-        print("NN_BEFORE", t, topn(t, 5))
-    eng.train_analogies(trips, epochs=8, lr=0.1, neg_k=10)
-    eng.train_transitions(seqs, learning_rate=0.06)
-    after_a = eng.evaluate_analogies(trips)
-    after_t = eng.evaluate_transitions(seqs)
-    print("AFTER_ANALOGY", after_a)
-    print("AFTER_TRANS", after_t)
-    for t in targets:
-        print("NN_AFTER", t, topn(t, 5))
-    eng.save_brain()
