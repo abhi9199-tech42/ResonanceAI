@@ -1,13 +1,16 @@
-import numpy as np
-import pickle
 import os
-from typing import List, Tuple, Dict, Optional, Any
+import pickle
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+
 from urcm.core.hierarchical_encoder import HierarchicalEncoder
-from urcm.core.values import ValueSystem
+from urcm.core.logic_gates import GeometricLogic
+from urcm.core.metacognition import MetacognitiveMonitor
 from urcm.core.sanskrit_bridge import SanskritBridge
 from urcm.core.sanskrit_grammar import SanskritGrammar
-from urcm.core.metacognition import MetacognitiveMonitor
-from urcm.core.logic_gates import GeometricLogic
+from urcm.core.values import ValueSystem
+
 
 class ReasoningEngine:
     """
@@ -15,7 +18,7 @@ class ReasoningEngine:
     Now enhanced with Metacognition (Self-Correction), Grammar (Structure),
     and Geometric Logic (Gates).
     """
-    
+
     def __init__(self, brain_path: str = "urcm_identity.pkl", uniformity_lambda: float = 0.25, alias_lambda: float = 0.5, neigh_k: int = 48, softmax_temp: float = 2.0, neigh_penalty: float = 0.25, align_weight: float = 0.6, pca_components: int = 8, values_weight: float = 0.2):
         self.brain_data_path = brain_path
         # Load Brain or Initialize New
@@ -25,13 +28,13 @@ class ReasoningEngine:
         else:
             from urcm.core.safe_io import safe_load_pickle
             self.brain_data = safe_load_pickle(brain_path)
-            
+
         self.l2_dim = self.brain_data["l2_W_res"].shape[0]
         self.hierarchy = HierarchicalEncoder(l2_res_dim=self.l2_dim)
-        
+
         # Load Weights
         self.hierarchy.layer2.W_res = self.brain_data["l2_W_res"]
-        
+
         # FIX: Load ALL trained weights (W_in, W_out) if available in brain_data.
         # This prevents "Dimension Mismatch" warnings and ensures stability of L2 projections.
         if "l2_W_in" in self.brain_data and self.brain_data["l2_W_in"] is not None:
@@ -39,9 +42,9 @@ class ReasoningEngine:
         if "l2_W_out" in self.brain_data and self.brain_data["l2_W_out"] is not None:
             self.hierarchy.layer2.W_out = self.brain_data["l2_W_out"]
             # Recalculate inverse if needed (though W_res is main driver)
-            
+
         # Ensure concept_map has stable vectors
-        # If brain was initialized with random vectors due to mismatch, 
+        # If brain was initialized with random vectors due to mismatch,
         # we must ensure they persist or are consistent.
         # But here we just load what's in the pickle.
         self.concept_map = self.brain_data["concept_map"]
@@ -79,12 +82,12 @@ class ReasoningEngine:
                     self.hub_scores[w] = max(0.0, float(np.mean(sims)))
                 else:
                     self.hub_scores[w] = 0.0
-        
+
         # FIX: Check if concept_map values match L2 dim. If not, re-project or warn.
-        # The logs showed "Weight dimension mismatch. Using random initialization." 
+        # The logs showed "Weight dimension mismatch. Using random initialization."
         # This happens in run_internet_goal.py, but here we are just loading.
         # If the pickle has bad dimensions, we are in trouble.
-        
+
         # Check first key if map exists
         if self.concept_map:
             first_key = next(iter(self.concept_map))
@@ -98,7 +101,7 @@ class ReasoningEngine:
                  self.hierarchy = HierarchicalEncoder(l2_res_dim=self.l2_dim)
                  self.hierarchy.layer2.W_res = np.random.randn(self.l2_dim, self.l2_dim) * 0.01
                  print(f"⚠️ Re-initialized W_res to {self.l2_dim}x{self.l2_dim} to match Concept Map.")
-        
+
         # Uniformity
         hubs_sorted = sorted(self.hub_scores.items(), key=lambda x: x[1], reverse=True)
         self.hub_vectors = []
@@ -106,7 +109,7 @@ class ReasoningEngine:
             v = normed[w]
             self.hub_vectors.append(v)
         self.uniformity_lambda = uniformity_lambda
-        
+
         self.alias_head_dims = 64
         self.alias_heads = [np.random.randn(self.l2_dim, self.alias_head_dims) * (1.0 / np.sqrt(self.l2_dim)) for _ in range(3)]
         self.concept_alias = {}
@@ -122,21 +125,21 @@ class ReasoningEngine:
         self.align_weight = align_weight
         self.pca_components = pca_components
         self.values_weight = values_weight
-        
+
         # Helper: Reverse Map removed (unstable float hashing)
-            
+
         # Initialize Value System (Moral Compass)
         self.values = ValueSystem(self.concept_map)
 
         # Initialize Sanskrit Bridge (Vocabulary)
         self.bridge = SanskritBridge()
-        
+
         # Initialize Sanskrit Grammar (Structure)
         self.grammar = SanskritGrammar()
-        
+
         # Initialize Metacognitive Monitor (Control)
         self.monitor = MetacognitiveMonitor()
-        
+
         # Initialize Logic Gates (Steering)
         self.logic = GeometricLogic(self.concept_map)
 
@@ -244,7 +247,7 @@ class ReasoningEngine:
         """Creates a fresh identity with random weights."""
         l2_dim = 1024 # Default dimension (Upgraded to 1M parameters)
         input_dim = 64
-        
+
         # Initialize basic axioms so the brain isn't empty
         basic_concepts = ["exist", "change", "order", "chaos", "self", "other", "good", "bad"]
         concept_map = {}
@@ -263,7 +266,7 @@ class ReasoningEngine:
         with open(self.brain_data_path, "wb") as f:
             pickle.dump(self.brain_data, f)
         print(f"[Reasoning] 🧠 New brain identity saved to '{self.brain_data_path}' with {len(basic_concepts)} axioms.")
-            
+
     def get_concept_vector(self, word: str) -> np.ndarray:
         word = word.lower()
         if word in self.concept_map:
@@ -463,11 +466,11 @@ class ReasoningEngine:
                     correct += 1
         acc = correct / max(1, total)
         return {"top1_acc": float(acc), "count": float(total)}
-        
-    def step(self, 
-             current_state: np.ndarray, 
-             goal_vec: Optional[np.ndarray], 
-             constraints: List[Tuple[np.ndarray, float]], 
+
+    def step(self,
+             current_state: np.ndarray,
+             goal_vec: Optional[np.ndarray],
+             constraints: List[Tuple[np.ndarray, float]],
              logic_gates: List[Dict],
              descent_steps: int = 3) -> Tuple[np.ndarray, str, Dict]:
         """
@@ -483,23 +486,23 @@ class ReasoningEngine:
                 corr = corr + sim * hv
             next_state_prediction = next_state_prediction - self.uniformity_lambda * corr
         next_state_prediction = self.hierarchy.layer2.safety.clamp_energy(next_state_prediction)
-        
+
         # --- METACOGNITION CHECK ---
         energy = self.hierarchy.layer2.get_global_energy(next_state_prediction)
         predicted_word = self.decode(next_state_prediction)
-        
+
         signals = self.monitor.get_control_signals(
-            current_state=next_state_prediction, 
-            current_energy=energy, 
+            current_state=next_state_prediction,
+            current_energy=energy,
             current_word=predicted_word,
             goal_state=goal_vec
         )
-        
+
         # 4. Apply Corrections
         learning_rate = 0.1
         if signals["focus"] > 0:
             learning_rate *= (1.0 + signals["focus"])
-            
+
         if signals["frustration"] > 0:
             noise = np.random.normal(0, signals["frustration"], next_state_prediction.shape)
             next_state_prediction += noise
@@ -508,36 +511,36 @@ class ReasoningEngine:
             if norm > 0:
                 next_state_prediction = next_state_prediction / norm
             # print("  [Meta] ⚡ Injected Frustration Noise & Renormalized")
-        
+
         # B. Apply Constraints (Inference/Adaptation)
         refined_state = self.hierarchy.layer2.descend_energy_gradient(
             state=next_state_prediction,
-            codebook_vectors=self.concept_map, 
-            steps=descent_steps, 
+            codebook_vectors=self.concept_map,
+            steps=descent_steps,
             learning_rate=learning_rate,
             constraints=constraints
         )
         val_grad = self.values.get_alignment_gradient(refined_state)
         refined_state = refined_state - self.values_weight * val_grad
-        
+
         # C. Apply Logic Gates (Geometric Steering)
         for gate in logic_gates:
             grad = self.logic.apply_constraint(
-                refined_state, 
-                gate["type"], 
-                gate["operands"], 
+                refined_state,
+                gate["type"],
+                gate["operands"],
                 weight=gate.get("weight", 1.0)
             )
-            refined_state += grad * 0.1 
-            
+            refined_state += grad * 0.1
+
         refined_state = self.hierarchy.layer2.safety.clamp_energy(refined_state)
         # Re-Normalize after Logic
         norm = np.linalg.norm(refined_state)
         if norm > 0:
             refined_state = refined_state / norm
-        
+
         final_word = self.decode(refined_state)
-        
+
         return refined_state, final_word, signals
 
     def add_or_update_concept(self, word: str, vec: np.ndarray):
@@ -583,33 +586,33 @@ class ReasoningEngine:
         # Current prediction: pred = W * prev
         # Error = next - pred
         # dW = lr * error * prev.T
-        
+
         # 1. Forward pass (Linear part before tanh)
         # Note: W_res maps linear-to-linear usually, but here we have tanh nonlinearity.
         # Approximating as linear update on the pre-activation or just forcing the mapping.
         # Let's use simple Delta Rule on the linear projection.
-        
+
         pred = np.dot(state_prev, self.hierarchy.layer2.W_res)
-        # We want the linear projection to be close to the inverse tanh of next state? 
+        # We want the linear projection to be close to the inverse tanh of next state?
         # No, that's unstable. Let's just pull the projection towards the target state.
-        
+
         error = state_next - pred
-        
+
         # FIX: Mismatch between update (W * prev) and usage (prev * W).
         # We use np.dot(prev, W) in forward pass, so we need dW s.t. prev * dW ~ error.
         # prev * dW = prev * (prev.T * error) = (prev.prev) * error = error.
         # So dW should be outer(prev, error).
         # dW_ij = prev_i * error_j.
-        
+
         # Current code was: dot(error_col, prev_row) -> e_i * p_j.
         # This optimized W * prev (column mode).
-        
+
         # Correct for Row Mode (prev * W):
         dW = learning_rate * np.outer(state_prev, error)
-        
+
         # Apply Update
         self.hierarchy.layer2.W_res += dW
-        
+
         # Normalize to prevent explosion
         # Optional: spectral radius check every N steps (expensive)
         # Just simple weight decay or max norm
@@ -623,15 +626,15 @@ class ReasoningEngine:
         # W_in, W_out if they exist
         if hasattr(self.hierarchy.layer2, "W_in"):
              self.brain_data["l2_W_in"] = self.hierarchy.layer2.W_in
-             
+
         with open(self.brain_data_path, "wb") as f:
             pickle.dump(self.brain_data, f)
         print(f"[Reasoning] 💾 Brain saved to '{self.brain_data_path}'")
 
-    def solve(self, 
-              query_text: str, 
-              constraints: List[Tuple[str, float]], 
-              logic_gates: List[Dict] = [], 
+    def solve(self,
+              query_text: str,
+              constraints: List[Tuple[str, float]],
+              logic_gates: List[Dict] = [],
               steps: int = 10) -> List[str]:
         """
         Runs the reasoning process with Constraints AND Logic Gates.
@@ -639,18 +642,18 @@ class ReasoningEngine:
         print(f"Reasoning: Query='{query_text}' | Constraints={constraints}")
         if logic_gates:
             print(f"  Logic Gates: {logic_gates}")
-        
+
         # 1. Initialize State from Query
         start_vec = self.get_concept_vector(query_text)
         if start_vec is None:
             return [f"Unknown concept: {query_text}"]
-            
+
         current_state = start_vec.copy()
         trajectory = [self.decode(current_state)]
-        
+
         # 2. Prepare Constraints (Vector Space)
         vector_constraints = []
-        
+
         # A. User Constraints (Simple Weights)
         for word, weight in constraints:
             vec = self.get_concept_vector(word)
@@ -658,28 +661,28 @@ class ReasoningEngine:
                 vector_constraints.append((vec, weight))
             else:
                 print(f"⚠️ Constraint '{word}' not found in brain.")
-                
+
         # B. Axiomatic Constraints (The "Super-Ego")
         for name, valence in self.values.valences.items():
             if name in self.values.axioms:
                 vec = self.values.axioms[name]
-                weight = -1.0 * valence * 2.0 
+                weight = -1.0 * valence * 2.0
                 vector_constraints.append((vec, weight))
-        
+
         # 3. Run Dynamics
-        goal_vec = start_vec.copy() 
-        
+        goal_vec = start_vec.copy()
+
         prev_state = current_state.copy()
         for t in range(steps):
             current_state, word, signals = self.step(
                 current_state, goal_vec, vector_constraints, logic_gates
             )
-            
+
             # Calculate metrics and check for paradox
             from urcm.core.theory import URCMTheory
             rho = URCMTheory.calculate_rho(current_state)
             chi = URCMTheory.calculate_chi(current_state, prev_state) if t > 0 else float(np.linalg.norm(current_state))
-            
+
             is_paradox = URCMTheory.detect_paradox(current_state, self.concept_map)
             if is_paradox:
                 chi = 1e18
@@ -689,31 +692,31 @@ class ReasoningEngine:
                 break
             else:
                 mu = URCMTheory.compute_mu(rho, chi)
-                
+
             prev_state = current_state.copy()
-            
+
             if signals["status"] != "stable":
                 print(f"  [Meta] Alert at step {t}: {signals['status']} (Focus={signals['focus']:.2f}, Frust={signals['frustration']:.2f})")
                 if signals["frustration"] > 0:
                     print("  [Meta] ⚡ Injected Frustration Noise & Renormalized")
 
             trajectory.append(word)
-            
+
         # 1. Translate to Sanskrit Concepts (Right Brain -> Vocabulary)
         roles = self.grammar.compute_roles(trajectory)
         sanskrit_trajectory = self.bridge.translate_trajectory(trajectory)
         structured_thought = self.grammar.structure_thought(sanskrit_trajectory, roles)
-        
+
         print(f"🕉️ Structured Thought: {structured_thought}")
-        
+
         # Return both the raw trajectory (for debug) and the structured one
         sanskrit_trajectory.append(f"[Structure]: {structured_thought}")
-            
+
         return sanskrit_trajectory
-    
+
     def cross_domain_transfer(self, a: str, b: str, c: str) -> Tuple[Optional[str], float]:
         return self.solve_analogy(a, b, c)
-    
+
     def metaphor_map(self, source: str, target: str, source_part: str, target_part: str) -> Tuple[Optional[str], float]:
         if not all(k in self.concept_map for k in [source, target, source_part, target_part]):
             return None, 0.0
@@ -732,7 +735,7 @@ class ReasoningEngine:
                 best_sim = sim
                 best_word = word
         return best_word, best_sim
-    
+
     def structural_similarity(self, a1: str, a2: str, b1: str, b2: str) -> float:
         if not all(k in self.concept_map for k in [a1, a2, b1, b2]):
             return 0.0
@@ -743,14 +746,14 @@ class ReasoningEngine:
         if n1 == 0 or n2 == 0:
             return 0.0
         return float(np.dot(v_a, v_b) / (n1 * n2))
-    
+
     def blend_concepts(self, a: str, b: str) -> Optional[str]:
         if not all(k in self.concept_map for k in [a, b]):
             return None
         vec = self.concept_map[a] + self.concept_map[b]
         vec = vec / (np.linalg.norm(vec) + 1e-9)
         return self.decode(vec)
-    
+
     def infer_rule_from_sequence(self, seq: List[float]) -> Dict[str, float]:
         if not isinstance(seq, list) or len(seq) < 2:
             return {"type": "unknown"}
@@ -766,7 +769,7 @@ class ReasoningEngine:
         if ratios and all(abs(r - ratios[0]) < 1e-9 for r in ratios[1:]):
             return {"type": "geometric", "ratio": float(ratios[0])}
         return {"type": "unknown"}
-    
+
     def form_category(self, items: List[str], top_k: int = 5) -> Dict[str, Any]:
         vecs = []
         names = []
@@ -788,7 +791,7 @@ class ReasoningEngine:
                 sims.append((w, float(np.dot(centroid, v) / (n1 * n2))))
         sims.sort(key=lambda x: x[1], reverse=True)
         return {"centroid": centroid, "members": sims[:top_k]}
-    
+
     def add_concept_from_examples(self, name: str, examples: List[str]) -> bool:
         vecs = []
         for e in examples:
@@ -805,7 +808,7 @@ class ReasoningEngine:
         proto = proto / (np.linalg.norm(proto) + 1e-9)
         self.concept_map[name] = proto
         return True
-    
+
     def create_zero_shot_concept(self, name: str, attributes: List[str]) -> bool:
         vecs = []
         for a in attributes:
@@ -821,16 +824,16 @@ class ReasoningEngine:
         proto = proto / (np.linalg.norm(proto) + 1e-9)
         self.concept_map[name] = proto
         return True
-    
+
     def generate_novel(self, topic: str, steps: int = 6) -> List[str]:
         return self.solve(topic, constraints=[], logic_gates=[{"type": "OR", "operands": [topic, topic], "weight": 0.1}], steps=steps)
-    
+
     def form_hypothesis(self, antecedent: str, consequent: str, weight: float = 1.0) -> List[str]:
         return self.solve_path(antecedent, [{"type": "IMPLIES", "operands": [antecedent, consequent], "weight": weight}], steps=3)
-    
+
     def run_counterfactual(self, concept: str, change_to: str, weight: float = 1.0) -> List[str]:
         return self.solve(concept, constraints=[], logic_gates=[{"type": "NOT", "operands": [concept], "weight": weight}, {"type": "OR", "operands": [concept, change_to], "weight": weight}], steps=5)
-    
+
     def detect_humor(self, concepts: List[str]) -> float:
         vecs = []
         for c in concepts:
@@ -843,7 +846,7 @@ class ReasoningEngine:
         v2 = vecs[1] / (np.linalg.norm(vecs[1]) + 1e-9)
         incongruity = 1.0 - float(np.dot(v1, v2))
         return max(0.0, min(1.0, incongruity))
-    
+
     def create_joke(self, subject: str) -> List[str]:
         far = None
         v_sub = self.get_concept_vector(subject)
@@ -857,7 +860,7 @@ class ReasoningEngine:
                 best_score = score
                 far = w
         return [subject, "->", far]
-    
+
     def beauty_score(self, concept: str) -> float:
         v = self.get_concept_vector(concept)
         vb = self.get_concept_vector("beauty")

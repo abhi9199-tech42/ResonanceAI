@@ -1,5 +1,7 @@
 import numpy as np
+
 from urcm.core.moe_hopfield import MoEHopfieldMemory
+
 
 def cos(a, b):
     na = np.linalg.norm(a) + 1e-9

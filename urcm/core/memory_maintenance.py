@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class MemoryMaintenance:
     def __init__(self, encoder, geometric_memory, pipeline):
         self.encoder = encoder

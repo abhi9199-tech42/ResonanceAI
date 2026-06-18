@@ -8,9 +8,10 @@ Usage:
     python -m urcm.integration.gpt2_urcm
 """
 
-import torch
 import numpy as np
-from transformers import GPT2Tokenizer, GPT2Model, GPT2LMHeadModel
+import torch
+from transformers import GPT2LMHeadModel, GPT2Model, GPT2Tokenizer
+
 from urcm.integration.urcm_bottleneck import URCMBottleneck
 
 
@@ -46,7 +47,7 @@ class GPT2WithURCM:
         ).to(device).eval()
 
         print(f"  GPT-2 medium loaded  ({sum(p.numel() for p in self.lm_model.parameters())/1e6:.0f}M params)")
-        print(f"  URCM bottleneck:     resonance_dim=512, max_steps=20")
+        print("  URCM bottleneck:     resonance_dim=512, max_steps=20")
         print(f"  mu threshold:        {self.bottleneck.mu_threshold} (below = hallucination risk)")
 
     def generate_and_score(

@@ -1,41 +1,35 @@
 """Core components of the URCM system."""
 
 from .data_models import (
-    PhonemeSequence,
-    FrequencyPath,
-    ResonanceState,
     AttractorState,
+    FrequencyPath,
+    MeshSignal,
+    PhonemeSequence,
     ReasoningPath,
-    MeshSignal
+    ResonanceState,
 )
-
-from .validation import DataValidation
-
-from .phoneme_mapper import (
-    PhonemeFrequencyMapper,
-    TextToPhonemeConverter,
-    PhonemeFrequencyPipeline
-)
-
-from .mesh import MeshNode, MeshNetwork
-
-from .performance import (
-    OptimizedPhonemeSet,
-    CompressionMonitor,
-    PerformanceBenchmark,
-    PerformanceMetrics
-)
-
-from .system import URCMSystem
-
-from .resonance_encoder import ResonancePathEncoder
 from .hierarchical_encoder import HierarchicalEncoder
 from .memory import GeometricMemory
+from .mesh import MeshNetwork, MeshNode
+from .performance import (
+    CompressionMonitor,
+    OptimizedPhonemeSet,
+    PerformanceBenchmark,
+    PerformanceMetrics,
+)
+from .phoneme_mapper import (
+    PhonemeFrequencyMapper,
+    PhonemeFrequencyPipeline,
+    TextToPhonemeConverter,
+)
+from .resonance_encoder import ResonancePathEncoder
+from .system import URCMSystem
+from .validation import DataValidation
 
 __all__ = [
     "PhonemeSequence",
     "FrequencyPath",
-    "ResonanceState", 
+    "ResonanceState",
     "AttractorState",
     "ReasoningPath",
     "MeshSignal",

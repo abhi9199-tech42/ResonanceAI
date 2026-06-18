@@ -1,11 +1,12 @@
 from typing import Dict, List, Optional
 
+
 class SanskritBridge:
     """
     Bridge between English concepts and Sanskrit philosophical terminology.
     Provides mapping and IAST transliteration for URCM resonance states.
     """
-    
+
     # Core philosophical dictionary (English -> Sanskrit IAST)
     CONCEPT_MAP: Dict[str, str] = {
         # Ontology / Existence
@@ -20,7 +21,7 @@ class SanskritBridge:
         "soul": "ātman",
         "world": "jagat",
         "universe": "brahmāṇḍa",
-        
+
         # Dynamics / Energy
         "energy": "śakti",
         "power": "śakti",
@@ -33,7 +34,7 @@ class SanskritBridge:
         "flow": "pravāha",
         "vibration": "spanda",
         "resonance": "dhvani",
-        
+
         # Cognition / Mind
         "mind": "manas",
         "intellect": "buddhi",
@@ -45,7 +46,7 @@ class SanskritBridge:
         "memory": "smṛti",
         "perception": "pratyakṣa",
         "inference": "anumāna",
-        
+
         # Ethics / Affect
         "peace": "śānti",
         "joy": "ānanda",
@@ -58,7 +59,7 @@ class SanskritBridge:
         "law": "dharma",
         "compassion": "karuṇā",
         "love": "prema",
-        
+
         # Strategic / Conflict (for Midway scenarios)
         "war": "yuddha",
         "battle": "saṅgrāma",

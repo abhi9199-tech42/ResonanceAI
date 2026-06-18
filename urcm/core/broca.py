@@ -7,10 +7,11 @@ run one step, the closest concept is retrieved, and inhibition prevents
 repetition. Output is a concept stream grounded in the resonance geometry.
 """
 
-import numpy as np
 from typing import List, Optional
-from urcm.core.system import URCMSystem
 
+import numpy as np
+
+from urcm.core.system import URCMSystem
 
 # 2000 common English concept words — enough for meaningful retrieval
 # without the overhead of loading a file at startup

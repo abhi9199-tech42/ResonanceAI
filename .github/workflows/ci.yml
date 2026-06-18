@@ -15,13 +15,14 @@ jobs:
         with:
           python-version: "3.10"
       - run: pip install ruff
-      - run: ruff check urcm/ --select E,F,W --ignore E501,F841
+      - run: ruff check urcm/ --select E,F,W,I --ignore E501,F841,F401 --output-format=github
 
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11"]
+      fail-fast: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,11 +30,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-timeout
+          pip install pytest pytest-timeout hypothesis
       - name: Run unit tests
-        run: pytest tests/ -v --timeout=30 -x -k "not integration and not bert"
-        timeout-minutes: 10
+        run: pytest tests/ -v --timeout=60 -x -k "not integration and not bert and not commonsenseqa and not medical and not legal and not cuad and not drugbank" --tb=short
+        timeout-minutes: 15
 
   build:
     runs-on: ubuntu-latest

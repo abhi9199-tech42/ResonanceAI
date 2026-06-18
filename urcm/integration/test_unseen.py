@@ -1,4 +1,4 @@
-"""
+r"""
 Test the trained URCM bottleneck on completely unseen data.
 None of these prompts/responses were in the training set.
 
@@ -6,11 +6,15 @@ Run:
     venv_torch\Scripts\python.exe -m urcm.integration.test_unseen
 """
 
+import os
+import sys
+
 import torch
-import os, sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from transformers import GPT2Tokenizer, GPT2LMHeadModel
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
 from urcm.integration.urcm_bottleneck import URCMBottleneck
 
 # ── UNSEEN TEST DATA ───────────────────────────────────────────────────────────
@@ -73,7 +77,7 @@ def run_test():
 
     # Get hidden states for all unseen samples
     texts  = [p + " " + r for p, r, _ in UNSEEN_DATA]
-    labels = [l for _, _, l in UNSEEN_DATA]
+    labels = [lbl for _, _, lbl in UNSEEN_DATA]
 
     inputs = tokenizer(
         texts, return_tensors="pt",
@@ -102,10 +106,14 @@ def run_test():
             correct += 1
 
         # Confusion matrix
-        if label == 1 and pred == 1: tp += 1
-        elif label == 0 and pred == 0: tn += 1
-        elif label == 1 and pred == 0: fn += 1
-        else: fp += 1
+        if label == 1 and pred == 1:
+            tp += 1
+        elif label == 0 and pred == 0:
+            tn += 1
+        elif label == 1 and pred == 0:
+            fn += 1
+        else:
+            fp += 1
 
         true_str = "FACTUAL     " if label == 1 else "HALLUCINATED"
         pred_str = "FACTUAL     " if pred  == 1 else "HALLUCINATED"

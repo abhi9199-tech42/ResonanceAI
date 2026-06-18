@@ -2,9 +2,9 @@
 Safe I/O utilities for loading serialized data.
 Provides pickle loading with restrictions to mitigate arbitrary code execution.
 """
-import pickle
 import io
 import os
+import pickle
 from typing import Any, Optional
 
 
@@ -40,23 +40,23 @@ class RestrictedUnpickler(pickle.Unpickler):
 def safe_load_pickle(file_path: str) -> Any:
     """
     Load a pickle file with restricted unpickling for safety.
-    
+
     Only allows numpy arrays, dicts, and basic built-in types.
     Blocks arbitrary code execution via crafted pickle payloads.
-    
+
     Args:
         file_path: Path to the pickle file.
-        
+
     Returns:
         Deserialized object.
-        
+
     Raises:
         FileNotFoundError: If file doesn't exist.
         pickle.UnpicklingError: If file contains unsafe types.
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Pickle file not found: {file_path}")
-    
+
     with open(file_path, "rb") as f:
         return RestrictedUnpickler(f).load()
 

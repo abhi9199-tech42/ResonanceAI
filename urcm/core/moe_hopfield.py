@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class MoEHopfieldMemory:
     def __init__(self, dim: int, rank: int, experts: int, top_k: int = 2, seed: int = 0):
         self.dim = dim

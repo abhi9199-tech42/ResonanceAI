@@ -18,8 +18,9 @@ Core Wave Operations:
   3. Reconstruct: project back to full dimension
 """
 
+from typing import List, Optional, Tuple
+
 import numpy as np
-from typing import Optional, Tuple, List
 
 
 class WavePhysicsMerger:

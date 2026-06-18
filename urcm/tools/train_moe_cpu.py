@@ -2,12 +2,15 @@ import argparse
 import json
 import os
 import sys
-import numpy as np
 import time
 from pathlib import Path
+
+import numpy as np
+
 from urcm.core.moe_hopfield import MoEHopfieldMemory
 from urcm.core.phoneme_mapper import PhonemeFrequencyPipeline
 from urcm.core.resonance_encoder import ResonancePathEncoder
+
 
 def cos(a, b):
     na = np.linalg.norm(a) + 1e-9

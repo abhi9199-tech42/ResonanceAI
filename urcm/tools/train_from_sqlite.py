@@ -1,16 +1,18 @@
-import sys
 import os
-import sqlite3
-import numpy as np
 import pickle
+import sqlite3
+import sys
 from typing import List, Optional
+
+import numpy as np
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from urcm.core.hierarchical_encoder import HierarchicalEncoder
-from urcm.core.phoneme_mapper import PhonemeFrequencyPipeline
 from urcm.core.memory import GeometricMemory
+from urcm.core.phoneme_mapper import PhonemeFrequencyPipeline
+from urcm.core.resonance_encoder import ResonancePathEncoder
 from urcm.core.sanskrit_grammar import SanskritGrammar
 from urcm.core.web_sensor import WebSensor
-from urcm.core.resonance_encoder import ResonancePathEncoder
 
 
 def text_to_concept(encoder: HierarchicalEncoder, pipeline: PhonemeFrequencyPipeline, text: str) -> np.ndarray:

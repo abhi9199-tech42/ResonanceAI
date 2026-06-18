@@ -10,18 +10,19 @@ Wave Physics Integration:
   - Error correction via destructive interference of noise
 """
 
-from typing import Optional, Dict, Any, Union, List, Tuple
-import numpy as np
-import time
-from urcm.core.safe_io import safe_load_pickle
-
-from urcm.core.data_models import FrequencyPath, ResonanceState
-from urcm.core.theory import URCMTheory
-from urcm.core.safety import SafetyGovernor, SafetyViolation
-from urcm.core.wave_merger import WavePhysicsMerger
-
 import os
 import pickle
+import time
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+
+from urcm.core.data_models import FrequencyPath, ResonanceState
+from urcm.core.safe_io import safe_load_pickle
+from urcm.core.safety import SafetyGovernor, SafetyViolation
+from urcm.core.theory import URCMTheory
+from urcm.core.wave_merger import WavePhysicsMerger
+
 
 class ResonancePathEncoder:
     """
@@ -84,7 +85,7 @@ class ResonancePathEncoder:
             self._init_transformer_stub()
         else:
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
-            
+
     def _load_pretrained_weights(self, weights: Dict[str, np.ndarray]):
         """Load pre-set weights (from HuggingFace conversion) into the encoder."""
         required = ["W_in", "W_res", "W_out", "bias"]
@@ -134,26 +135,26 @@ class ResonancePathEncoder:
         # Previous 0.02 was too weak for W_out to detect x_t against history noise.
         # Saturation is handled by arctanh linearization.
         self.W_in = rng.normal(0, 0.1, (self.input_dim, self.resonance_dim)).astype(self.dtype)
-        
+
         # Recurrent weight matrix (Resonance -> Resonance)
         # FORCE ORTHOGONAL INITIALIZATION (The "Holy Grail" Fix)
         # Orthogonal matrices preserve norm, preventing chaos/vanishing gradients
         H = rng.randn(self.resonance_dim, self.resonance_dim)
         Q, R = np.linalg.qr(H)
-        
+
         # SCALED ORTHOGONAL: Scale by 0.95 (Fading Memory)
         # Unitary (1.0) causes unbounded growth (Random Walk) leading to deep saturation.
         # Fading (0.95) keeps state bounded in linear region, improving Readout SNR.
         # Reversibility is maintained via exact inverse (1/0.95).
         self.W_res = (Q * 0.95).astype(self.dtype)
-        
+
         # Bias
         self.bias = rng.normal(0, 0.01, self.resonance_dim).astype(self.dtype)
 
         # Decoder Weights (Resonance -> Input)
         # Simple inversion attempt (Pseudoinverse)
         self.W_out = np.linalg.pinv(self.W_in.astype(np.float64)).astype(self.dtype)
-        
+
         # Inverse Recurrent Weights (for rewinding time)
         # We need the EXACT inverse for the "Holy Grail" reversibility.
         # W_res is orthogonal-ish (Q * 0.95), so Inv = (1/0.95) * Q.T
@@ -162,7 +163,7 @@ class ResonancePathEncoder:
             self.W_res_inv = np.linalg.inv(self.W_res.astype(np.float64)).astype(self.dtype)
         except np.linalg.LinAlgError:
             self.W_res_inv = np.linalg.pinv(self.W_res.astype(np.float64)).astype(self.dtype)
-        
+
         # Learned final-step gating parameters (token-agnostic, context-based)
         self.gate_alpha = 1.0
         self.gate_beta = 1.0
@@ -174,7 +175,7 @@ class ResonancePathEncoder:
         # Root is ../../
         root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         weight_path = os.path.join(root_dir, "urcm_weights.pkl")
-        
+
         if os.path.exists(weight_path):
             try:
                 print(f"Loading trained weights from {weight_path}...")
@@ -195,7 +196,7 @@ class ResonancePathEncoder:
 
                     print("[SUCCESS] Trained weights loaded successfully.")
                 else:
-                    print(f"[WARNING] Weight dimension mismatch. Using random initialization.")
+                    print("[WARNING] Weight dimension mismatch. Using random initialization.")
             except Exception as e:
                 print(f"[ERROR] Error loading weights: {e}")
         else:
@@ -218,18 +219,18 @@ class ResonancePathEncoder:
         self.W_q = rng.normal(0, 0.1, (self.input_dim, 32)).astype(self.dtype)
         self.W_k = rng.normal(0, 0.1, (self.input_dim, 32)).astype(self.dtype)
         self.W_v = rng.normal(0, 0.1, (self.input_dim, self.resonance_dim)).astype(self.dtype)
-        
+
     def _normalize_path(self, vectors: np.ndarray, target_len: int = 24) -> np.ndarray:
         """
         Resample frequency vectors to a fixed length via linear interpolation.
         This ensures the RNN processes the same number of steps for all inputs,
         eliminating the length-attractor collapse where short and long texts
         land in different attractor basins.
-        
+
         Args:
             vectors: (seq_len, freq_dim) frequency vectors.
             target_len: Desired number of steps after normalization.
-            
+
         Returns:
             (target_len, freq_dim) interpolated vectors.
         """
@@ -246,10 +247,10 @@ class ResonancePathEncoder:
     def encode_path(self, frequency_path: Union[FrequencyPath, np.ndarray]) -> np.ndarray:
         """
         Convert a frequency path into a final resonance vector.
-        
+
         Args:
             frequency_path: Input mechanism (FrequencyPath object or raw numpy array).
-            
+
         Returns:
             np.ndarray: The final resonance vector (1D array of size resonance_dim).
         """
@@ -259,12 +260,12 @@ class ResonancePathEncoder:
         else:
             vectors = frequency_path
         vectors = np.asarray(vectors, dtype=self.dtype)
-            
+
         if vectors.shape[1] != self.input_dim:
             raise ValueError(
                 f"Input dimension mismatch. Expected {self.input_dim}, got {vectors.shape[1]}"
             )
-            
+
         if self.fast_mode:
             return self._encode_transformer(vectors)
         if self.encoder_type == "recurrent_numpy":
@@ -277,10 +278,10 @@ class ResonancePathEncoder:
     def encode_path_batch(self, vectors_batch: np.ndarray) -> np.ndarray:
         """
         Batched version of encode_path.
-        
+
         Args:
             vectors_batch: Shape (Batch, Time, InputDim).
-            
+
         Returns:
             np.ndarray: Shape (Batch, ResonanceDim).
         """
@@ -292,7 +293,7 @@ class ResonancePathEncoder:
     def _encode_recurrent_batch(self, vectors_batch: np.ndarray) -> np.ndarray:
         batch_size, seq_len, _ = vectors_batch.shape
         current_state = np.zeros((batch_size, self.resonance_dim), dtype=self.dtype)
-        
+
         for t in range(seq_len):
             x_t = vectors_batch[:, t, :] # (Batch, InputDim)
             input_signal = np.dot(x_t, self.W_in) # (Batch, ResDim)
@@ -306,26 +307,26 @@ class ResonancePathEncoder:
                 g = 1.0 / (1.0 + np.exp(-z))
                 input_signal = (input_signal.T * g).T
             current_state = np.tanh(input_signal + echo_signal + self.bias)
-            
+
         return current_state
 
     def get_state_trajectory_batch(self, vectors_batch: np.ndarray) -> np.ndarray:
         """
         Batched version of get_state_trajectory.
-        
+
         Args:
             vectors_batch: Shape (Batch, Time, InputDim).
-            
+
         Returns:
             np.ndarray: Shape (Batch, Time, ResonanceDim).
         """
         if self.encoder_type != "recurrent_numpy":
              raise NotImplementedError("Trajectory extraction only for recurrent_numpy")
-             
+
         batch_size, seq_len, _ = vectors_batch.shape
         current_state = np.zeros((batch_size, self.resonance_dim), dtype=self.dtype)
         states = []
-        
+
         for t in range(seq_len):
             x_t = vectors_batch[:, t, :]
             input_signal = np.dot(x_t, self.W_in)
@@ -334,7 +335,7 @@ class ResonancePathEncoder:
             echo_signal = np.dot(current_state, self.W_res)
             current_state = np.tanh(input_signal + echo_signal + self.bias)
             states.append(current_state.copy())
-            
+
         # Stack time on axis 1: List of (Batch, Dim) -> (Batch, Time, Dim)
         return np.swapaxes(np.array(states), 0, 1)
 
@@ -342,27 +343,27 @@ class ResonancePathEncoder:
         """
         Runs forward pass and returns the full sequence of hidden states.
         Useful for training the readout layer.
-        
+
         Returns:
             np.ndarray: Matrix of shape (SequenceLength, ResonanceDim)
         """
         if self.encoder_type != "recurrent_numpy":
             raise NotImplementedError("Trajectory extraction only for recurrent_numpy")
-            
+
         if isinstance(frequency_path, FrequencyPath):
             vectors = frequency_path.vectors
         else:
             vectors = frequency_path
-            
+
         current_state = np.zeros(self.resonance_dim, dtype=self.dtype)
         states = []
-        
+
         for t in range(vectors.shape[0]):
             x_t = vectors[t]
-            
+
             # --- PHASE 4: SAFETY LOCK (Input Sanitization) ---
             x_t = self.safety.sanitize_input(x_t)
-            
+
             input_signal = np.dot(x_t, self.W_in)
             echo_signal = np.dot(current_state, self.W_res)
             if t < (vectors.shape[0] - 1):
@@ -374,12 +375,12 @@ class ResonancePathEncoder:
                 g = 1.0 / (1.0 + np.exp(-z))
                 input_signal = input_signal * g
             current_state = np.tanh(input_signal + echo_signal + self.bias)
-            
+
             current_state = self.safety.clamp_energy(current_state)
             self.safety.check_energy_ceiling(current_state)
-            
+
             states.append(current_state.copy())
-            
+
         return np.array(states)
 
     def get_global_energy(self, state: np.ndarray, codebook_vectors: Optional[Dict[str, np.ndarray]] = None) -> float:
@@ -413,59 +414,59 @@ class ResonancePathEncoder:
         else:
             return np.linalg.norm(x_hat)
 
-    def descend_energy_gradient(self, 
-                                state: np.ndarray, 
-                                codebook_vectors: Dict[str, np.ndarray], 
-                                steps: int = 1, 
+    def descend_energy_gradient(self,
+                                state: np.ndarray,
+                                codebook_vectors: Dict[str, np.ndarray],
+                                steps: int = 1,
                                 learning_rate: float = 0.1,
                                 constraints: List[Tuple[np.ndarray, float]] = None) -> np.ndarray:
         r"""
         Performs Gradient Descent on the Energy Surface.
-        
+
         This is "Thinking".
         Instead of just randomly drifting, the system actively minimizes E(s).
-        
+
         s_{t+1} = s_t - \eta * (\nabla E_{attractor}(s_t) + \nabla E_{constraints}(s_t))
-        
+
         Args:
             state: Current resonance state.
             codebook_vectors: The set of valid phoneme vectors (Attractors).
             steps: Number of descent steps.
             learning_rate: Step size.
-            constraints: List of (vector, weight) tuples. 
-                         Weight > 0 means AVOID (Repulsion). 
+            constraints: List of (vector, weight) tuples.
+                         Weight > 0 means AVOID (Repulsion).
                          Weight < 0 means SEEK (Attraction).
-            
+
         Returns:
             np.ndarray: The refined (lower energy) state.
         """
         if constraints is None:
             constraints = []
-            
+
         current_state = state.copy()
-        
+
         for _ in range(steps):
             # 1. Calculate Gradient (Numerical Approximation for stability)
             # Analytic gradient of Min() is tricky due to switching logic.
             # We use the 'current nearest attractor' to define the local gradient.
-            
+
             safe_state = np.clip(current_state, -0.98, 0.98)
             h_state = self._safe_arctanh(current_state)
             x_hat = np.dot(h_state, self.W_out)
-            
+
             # Find nearest attractor
             min_dist = float('inf')
             target_vec = None
-            
+
             # Detect Dimension of Codebook
             # If codebook is in Resonance Space (Layer 2), use s directly.
             # If codebook is in Input Space (Layer 1), use x_hat.
-            
+
             use_resonance_space = False
             first_vec = next(iter(codebook_vectors.values()))
             if first_vec.shape == current_state.shape:
                 use_resonance_space = True
-            
+
             for vec in codebook_vectors.values():
                 if use_resonance_space:
                     num = float(np.dot(current_state, vec))
@@ -473,14 +474,14 @@ class ResonancePathEncoder:
                     d = 1.0 - (num / den)
                 else:
                     d = np.linalg.norm(x_hat - vec)
-                    
+
                 if d < min_dist:
                     min_dist = d
                     target_vec = vec
-            
+
             if target_vec is None:
                 break
-                
+
             if use_resonance_space:
                 # E = ||s - target||^2
                 # dE/ds = 2 * (s - target)
@@ -489,55 +490,55 @@ class ResonancePathEncoder:
                 # Map nearest input target to resonance space and pull towards it
                 target_res = np.tanh(np.dot(target_vec, self.W_in))
                 grad_s = (current_state - target_res)
-            
+
             # --- CONSTRAINT GRADIENTS ---
             # E_const = weight * dot(s, vec)
             # grad_const = weight * vec
-            # But we are in "s" space directly? 
+            # But we are in "s" space directly?
             # Yes, constraints are usually applied in the latent space directly for simplicity.
-            # If constraint is in Input Space (x), we backprop. 
+            # If constraint is in Input Space (x), we backprop.
             # For now, assume constraint vector is in Resonance Space (s).
-            
+
             grad_constraints = np.zeros_like(grad_s)
             for vec, weight in constraints:
                 # If vec is same dim as state (Resonance Space)
                 if vec.shape == current_state.shape:
                      grad_constraints += weight * vec
-                # If vec is Input Space (x), project it? 
+                # If vec is Input Space (x), project it?
                 # For Phase 6 Reasoning, we assume Concept Vector Constraints (L2 Space), so dimensions match.
-            
+
             total_grad = grad_s + grad_constraints
-            
+
             # 3. Update State
             # s_new = s_old - lr * grad
             current_state = current_state - learning_rate * total_grad
-            
+
             current_state = np.clip(current_state, -0.999, 0.999)
-            
+
             current_state = self.safety.clamp_energy(current_state)
             self.safety.check_energy_ceiling(current_state)
-            
+
         return current_state
 
     def correct_error(self, state: np.ndarray, codebook_vectors: Dict[str, np.ndarray], max_steps: int = 20) -> np.ndarray:
         """
         Applies Error Correction to a noisy state.
         Pulls off-manifold states to the nearest valid attractor (Fixed Point).
-        
+
         This implements the "Cleanup" phase of the Diamond Core.
-        
+
         Args:
             state: The potentially noisy/off-manifold state.
             codebook_vectors: Valid semantic targets.
             max_steps: Maximum dynamics steps for cleanup.
-            
+
         Returns:
             np.ndarray: The cleaned, on-manifold state.
         """
         cleaned_state, _, _ = self.run_dynamics_until_stable(
-            state, 
-            codebook_vectors, 
-            max_steps=max_steps, 
+            state,
+            codebook_vectors,
+            max_steps=max_steps,
             energy_tolerance=1e-3,
             noise_injection=0.0,
             return_history=False
@@ -737,29 +738,29 @@ class ResonancePathEncoder:
         """
         Runs the decoder and collects the internal states and outputs visited.
         Used for DAgger (Dataset Aggregation) training.
-        
+
         Returns:
-            Tuple[states, outputs]: 
+            Tuple[states, outputs]:
             - states: (Steps, ResonanceDim) - The noisy states visited
             - outputs: (Steps, InputDim) - The predicted inputs
         """
         if self.encoder_type != "recurrent_numpy":
              raise NotImplementedError("Decoding only implemented for recurrent_numpy backend.")
-             
+
         current_state = resonance_state.resonance_vector.copy()
-        
+
         states = []
         outputs = []
-        
+
         # Unwind loop
         for _ in range(steps):
             states.append(current_state.copy())
-            
+
             # 1. Predict Input
             x_hat = np.dot(current_state, self.W_out)
             x_hat = np.tanh(x_hat)
             outputs.insert(0, x_hat) # Prepend (we are going backwards in time)
-            
+
             try:
                 pre_activation = self._safe_arctanh(current_state)
                 input_contribution = np.dot(x_hat, self.W_in)
@@ -767,27 +768,27 @@ class ResonancePathEncoder:
                 # Recover previous state
                 # Initial Guess (Linear Inverse)
                 prev_state = np.dot(residual, self.W_res_inv)
-                
+
                 # --- Simplified Logic: Direct Linear Inverse ---
                 # We removed the experimental Gradient Descent loop to restore stability.
-                
+
                 current_state = prev_state
-                
+
                 # --- PHASE 4: SAFETY LOCK (Energy Ceiling) ---
                 self.safety.check_energy_ceiling(current_state)
-                
+
             except SafetyViolation as sv:
                 # If safety violated during rewind, stop rewinding
                 print(f"Safety Violation during rewind: {sv}")
                 break
             except Exception:
                 current_state = current_state * 0.9 # Dampen on error
-                
-        # States were collected T...T-steps. 
+
+        # States were collected T...T-steps.
         # But we want to map State[t] -> Input[t].
         # In the loop: State[t] generates Input[t].
         # So alignment is correct.
-        
+
         return np.array(states), np.array(outputs)
 
     def train_decoder_iterative(self, frequency_paths: list, iterations: int = 5, ridge_alpha: float = 0.1) -> float:
@@ -799,30 +800,30 @@ class ResonancePathEncoder:
         4. Retrain.
         """
         print(f"🔄 Starting Iterative Training ({iterations} cycles)...")
-        
+
         # 1. Initial Dataset (Forward Pass)
         all_states = []
         all_targets = []
-        
+
         for path in frequency_paths:
             states = self.get_state_trajectory(path)
             inputs = path.vectors
-            
+
             # Align: State[t] should predict Input[t] ?
             # In encode: s_t = f(s_{t-1}, x_t).
             # So s_t contains info about x_t. Yes.
-            
+
             # Prepare Targets: We want to predict arctanh(input)
             # This matches the linear thought space before tanh activation
             safe_inputs = np.clip(inputs, -0.999, 0.999)
             targets = np.arctanh(safe_inputs)
-            
+
             all_states.append(states)
             all_targets.append(targets)
-            
+
         # Initial Train
         print("  Cycle 0 (Forward States Only)...")
-        
+
         # Prepare Inputs: We want to predict from arctanh(state)
         # The relationship x -> h -> s is: s = tanh(h), h = Win*x + ...
         # So x is linearly related to h = arctanh(s).
@@ -830,19 +831,19 @@ class ResonancePathEncoder:
         # Training on arctanh(s) makes the problem Linear -> Linear.
         combined_states = np.vstack(all_states)
         combined_targets = np.vstack(all_targets)
-        
+
         safe_states = np.clip(combined_states, -1.0 + 1e-15, 1.0 - 1e-15)
         linearized_states = np.arctanh(safe_states)
-        
+
         print(f"    Solving Ridge Regression (Samples={len(combined_states)})...")
         self._solve_ridge(linearized_states, combined_targets, ridge_alpha)
-        
+
         # 2. Iterative Cycles
         for i in range(iterations):
             print(f"  Cycle {i+1}/{iterations}: Collecting drift states...")
             new_states = []
             new_targets = []
-            
+
             for path in frequency_paths:
                 final_vec = self.get_state_trajectory(path)[-1]
                 rho = 0.1
@@ -856,49 +857,49 @@ class ResonancePathEncoder:
                     oscillation_phase=0.0,
                     timestamp=time.time()
                 )
-                
+
                 # Run decoder to see where it drifts
                 steps = len(path.vectors)
                 noisy_states, _ = self.collect_decoder_trajectory(final_state, steps)
-                
+
                 # The "Correct" input for noisy_state[0] (which is final state) is Input[-1]
-                # The decoder loop goes backwards. 
+                # The decoder loop goes backwards.
                 # noisy_states[0] corresponds to T
                 # noisy_states[1] corresponds to T-1
                 # ...
                 # path.vectors are 0...T
-                
+
                 # Reverse vectors to match noisy_states order
                 correct_inputs_reversed = path.vectors[::-1]
-                
+
                 safe_inputs = np.clip(correct_inputs_reversed, -0.999, 0.999)
                 targets = np.arctanh(safe_inputs)
-                
+
                 new_states.append(noisy_states)
                 new_targets.append(targets)
-                
+
             # Aggregate
             all_states.extend(new_states)
             all_targets.extend(new_targets)
-            
+
             # Retrain
             # Linearize states to maintain "Holy Grail" reversibility (Linear -> Linear)
             combined_states = np.vstack(all_states)
             safe_states = np.clip(combined_states, -1.0 + 1e-15, 1.0 - 1e-15)
             linearized_states = np.arctanh(safe_states)
-            
+
             mse = self._solve_ridge(linearized_states, np.vstack(all_targets), ridge_alpha)
             print(f"    MSE: {mse:.6f}")
-            
+
         return mse
-        
+
     def _solve_ridge(self, H, Y, alpha):
         HTH = np.dot(H.T, H)
         HTH_reg = HTH + alpha * np.eye(self.resonance_dim)
         HTY = np.dot(H.T, Y)
         try:
             self.W_out = np.linalg.solve(HTH_reg, HTY)
-            
+
             # Calc MSE
             Y_pred = np.tanh(np.dot(H, self.W_out))
             Y_target = np.tanh(Y) # Compare in tanh space
@@ -937,33 +938,33 @@ class ResonancePathEncoder:
         # Q = vectors * W_q
         # K = vectors * W_k
         # V = vectors * W_v
-        
+
         Q = np.dot(vectors, self.W_q) # (Seq, 32)
         K = np.dot(vectors, self.W_k) # (Seq, 32)
         V = np.dot(vectors, self.W_v) # (Seq, Dim)
-        
+
         # Attention scores = softmax(Q * K.T / sqrt(d_k))
         # We'll just do a global pooling for the "context vector"
         # For this stub, let's treat the *last* vector as the query for the whole sequence
         query = Q[-1] # (32,)
-        
+
         scores = np.dot(K, query) / np.sqrt(32) # (Seq,)
-        
+
         # Softmax
         exp_scores = np.exp(scores - np.max(scores))
         weights = exp_scores / np.sum(exp_scores)
-        
+
         # Weighted sum of V
         # context = sum(w_i * v_i)
         context = np.dot(weights, V) # (Dim,)
-        
+
         return np.tanh(context) # Squash to valid resonance range
 
     def decode_state(self, resonance_state: ResonanceState, steps: int = 10, top_k: int = 5, track_energy: bool = False, phoneme_vectors: dict = None, ground_truth_vectors: list = None, force_ground_truth: bool = False) -> np.ndarray:
         """
         Attempt to decode a resonance state back into a sequence of frequency vectors.
         Uses Inverse Echo State logic to rewind the dynamic system.
-        
+
         Args:
             resonance_state: The state to decode.
             steps: Number of time steps to unroll (since we don't know original length).
@@ -972,48 +973,48 @@ class ResonancePathEncoder:
             phoneme_vectors: Optional dictionary of valid phoneme vectors for Snapping (Quantization).
             ground_truth_vectors: Optional list of ground truth vectors for debugging Top-K recall.
             force_ground_truth: Whether to force ground truth usage.
-            
+
         Returns:
             np.ndarray: Sequence of frequency vectors (Steps, InputDim).
         """
         if self.encoder_type != "recurrent_numpy":
              raise NotImplementedError("Decoding only implemented for recurrent_numpy backend.")
-             
+
         # Initialize generative loop
         current_state = resonance_state.resonance_vector.copy()
         generated_vectors = []
-        
+
         # Prepare Codebook for Snapping
         codebook_vectors = None
         codebook_names = None
         if phoneme_vectors:
             codebook_names = list(phoneme_vectors.keys())
             codebook_vectors = np.array([phoneme_vectors[k] for k in codebook_names])
-        
+
         if track_energy:
             print(f"🌌 Dreaming (Decoding) for {steps} steps. Tracking Energy Descent...")
-        
+
         # We unwind the stack from T to T-steps
         # Logic: s_t = tanh(W_in*x_t + W_res*s_{t-1} + b)
         # 1. Estimate x_t from s_t using W_out
         # 2. Invert tanh to get pre-activation: a_t = atanh(s_t)
         # 3. Solve for s_{t-1}: s_{t-1} = W_res_inv * (a_t - W_in*x_t - b)
-        
+
         for step in range(steps):
                 # 1. Estimate Input x_t (Initial Guess)
                 # x_hat_raw = s_t * W_out
                 x_hat_raw = np.dot(current_state, self.W_out)
-                
+
                 # Project back to valid input space (tanh)
                 # We trained W_out to predict arctanh(x), so we must apply tanh to get x.
                 x_hat_projected = np.tanh(x_hat_raw)
-                
+
                 # --- Neuro-Symbolic Snapping (Quantization) ---
                 # We identify the discrete symbol (phoneme) closest to our continuous thought.
                 # This removes noise and drift, enabling perfect logical reversibility.
-                
+
                 x_hat = x_hat_projected
-                
+
                 if codebook_vectors is not None:
                     # SMART SNAPPING: "Cycle Consistency Verification"
                     # As requested by User:
@@ -1021,31 +1022,31 @@ class ResonancePathEncoder:
                     # 2. Backward: Estimate s_{t-1}
                     # 3. Forward: Verify s_hat_t
                     # 4. Measure Error & Plausibility
-                    
+
                     # 1. Initialize
                     # Clip to avoid arctanh singularity, but keep high precision to capture saturation energy
                     # float64 epsilon is approx 2.2e-16. Using 1e-15 is safe.
                     CLIP_EPSILON = 1e-15
                     current_state = np.clip(current_state, -1.0 + CLIP_EPSILON, 1.0 - CLIP_EPSILON)
                     term_s = np.arctanh(current_state)
-                    
+
                     # Track valid candidate counts
-                    
+
                     # --- Step 0: Candidate Selection (Top-K) ---
                     # Calculate distances to all codebook vectors from the raw prediction
                     # x_hat_projected is our initial guess based on W_out
                     dists = np.linalg.norm(codebook_vectors - x_hat_projected, axis=1)
-                    
+
                     # Get Top-K indices
-                    # Update: We check ALL candidates to ensure global optimality, 
+                    # Update: We check ALL candidates to ensure global optimality,
                     # BUT we sort them by W_out probability (distance) to prioritize the most likely ones.
-                    K = len(codebook_vectors) 
-                    
+                    K = len(codebook_vectors)
+
                     # Sort indices by distance (ascending)
                     top_k_indices = np.argsort(dists)
-                    
+
                     candidate_vectors = codebook_vectors[top_k_indices]
-                    
+
                     # Reverse lookup for phoneme names (optional, for debug)
                     candidate_phonemes = []
                     if phoneme_vectors:
@@ -1054,15 +1055,15 @@ class ResonancePathEncoder:
                         vec_to_name = {}
                         for p, v in phoneme_vectors.items():
                             vec_to_name[v.tobytes()] = p
-                        
+
                         candidate_phonemes = [vec_to_name.get(v.tobytes(), "?") for v in candidate_vectors]
-                    
+
                     # 1. Backward Pass (Batch on Candidates)
                     # inputs_contribution: (K, ResDim)
                     inputs_contribution = np.dot(candidate_vectors, self.W_in)
                     residuals = term_s - inputs_contribution - self.bias
                     candidates_s_prev = np.dot(residuals, self.W_res_inv)
-                    
+
                     # ⚠️ CRITICAL UPDATE: STATE SNAPPING ⚠️
                     # The backward calculation from deep saturation (arctanh) is numerically unstable
                     # and often produces magnitudes >> 1.0 (e.g. 387.0).
@@ -1070,27 +1071,27 @@ class ResonancePathEncoder:
                     # We must "Snap" the state back to the valid manifold by clipping.
                     # This corrects the "Energy Hallucination" from saturation loss.
                     candidates_s_prev = np.clip(candidates_s_prev, -1.0, 1.0)
-                    
+
                     # 2. Forward Verify (Batch on Candidates)
                     # s_hat = tanh(W_in*x + W_res*s_prev + b)
                     term_forward = inputs_contribution + np.dot(candidates_s_prev, self.W_res) + self.bias
                     candidates_s_hat = np.tanh(term_forward)
-                    
+
                     # 3. Measure Error
                     # epsilon = ||s_hat - s_current||
                     errors = np.linalg.norm(candidates_s_hat - current_state, axis=1)
-                    
+
                     # 4. Check Plausibility
                     # s_prev must be in [-1, 1]
                     # Calculate max deviation from unit hypercube
                     max_abs = np.max(np.abs(candidates_s_prev), axis=1)
                     deviations = np.maximum(0, max_abs - 1.0)
-                    
+
                     # Calculate State Energy (L2 Norm)
                     state_energies = np.linalg.norm(candidates_s_prev, axis=1)
-                    
+
                     forced_idx = -1
-                    
+
                     # --- DEBUG: Check if Ground Truth is in Top-K ---
                     if ground_truth_vectors is not None:
                         gt_idx = steps - 1 - step
@@ -1099,36 +1100,36 @@ class ResonancePathEncoder:
                             # Find distance to GT
                             gt_dists = np.linalg.norm(candidate_vectors - gt_vec, axis=1)
                             min_gt_dist = np.min(gt_dists)
-                            
+
                             if min_gt_dist < 1e-4:
                                 # Found it - Print its stats
                                 gt_idx_in_candidates = np.argmin(gt_dists)
                                 gt_dev = deviations[gt_idx_in_candidates]
                                 gt_eng = state_energies[gt_idx_in_candidates]
-                                
+
                                 # Find rank in sorted list
                                 gt_rank = gt_idx_in_candidates
-                                
+
                                 if track_energy:
                                     # DEBUG: Find name of GT vector
                                     gt_idx_global = top_k_indices[gt_idx_in_candidates]
                                     gt_name_debug = codebook_names[gt_idx_global] if codebook_names else "?"
                                     print(f"    🎯 Ground Truth: '{gt_name_debug}' (Rank={gt_rank}, Dev={gt_dev:.6f}, Energy={gt_eng:.4f})")
-                                
+
                                 if force_ground_truth:
                                     forced_idx = gt_idx_in_candidates
                     # -----------------------------------------------
-                    
+
                     # Reject implausible candidates
                     # Tolerance 0.05 seems reasonable for floating point + minor noise
                     # Update: Reverting to strict tolerance (0.05) now that we have sorted candidates.
-                    TOLERANCE_STATE = 0.05 
+                    TOLERANCE_STATE = 0.05
                     TOLERANCE_ERROR = 0.1 # Tolerance for forward reconstruction error
-                    
+
                     valid_mask_state = deviations <= TOLERANCE_STATE
                     valid_mask_error = errors <= TOLERANCE_ERROR
                     valid_mask = valid_mask_state & valid_mask_error
-                    
+
                     # Print Top-5 Candidates for Debugging
                     if track_energy:
                         print(f"  Step {step+1} Candidates:")
@@ -1146,37 +1147,37 @@ class ResonancePathEncoder:
                             print(f"    {mark} Rank {i}: '{cand_name}' (Dist={cand_dist:.4f}, Dev={cand_dev:.4f}, Err={cand_err:.4f})")
 
                     best_idx_in_candidates = 0
-                    
+
                     if forced_idx != -1:
                         best_idx_in_candidates = forced_idx
                         if not valid_mask[forced_idx]:
                             if track_energy:
                                 print(f"    ⚠️ FORCING INVALID GROUND TRUTH! Dev={deviations[forced_idx]:.4f}")
-                    
+
                     elif np.any(valid_mask):
                         # Filter to valid candidates
                         valid_sub_indices = np.where(valid_mask)[0]
-                        
-                        # Since candidates are SORTED by W_out likelihood, 
+
+                        # Since candidates are SORTED by W_out likelihood,
                         # the first valid candidate is the best one.
                         # We don't need to minimize error (it's always ~0).
                         # We trust W_out ranking among the plausible set.
                         best_idx_in_candidates = valid_sub_indices[0]
-                        
+
                         # Use W_out prediction (dists) to break ties among valid candidates
                         # This combines Analytic Constraint (Validity) with Learned Guidance (W_out)
                         valid_dists = dists[top_k_indices[valid_sub_indices]]
-                        
+
                         best_sub_sub_idx = np.argmin(valid_dists)
                         best_idx_in_candidates = valid_sub_indices[best_sub_sub_idx]
-                    
+
                     else:
                         # Fallback: Just fail loudly or pick minimum deviation
                         # User requested strict rejection.
                         if track_energy:
-                            print(f"    ⚠️ ALL CANDIDATES REJECTED! Stopping Dream.")
+                            print("    ⚠️ ALL CANDIDATES REJECTED! Stopping Dream.")
                             print(f"    Min Deviation: {np.min(deviations):.4f}, Min Error: {np.min(errors):.4f}")
-                        
+
                         # We return early or break?
                         # If we break, we can't continue decoding.
                         # Let's return what we have so far.
@@ -1185,192 +1186,193 @@ class ResonancePathEncoder:
                     # Use the winner
                     x_hat = candidate_vectors[best_idx_in_candidates]
                     best_prev_state = candidates_s_prev[best_idx_in_candidates]
-                    
+
                     winner_idx_global = top_k_indices[best_idx_in_candidates]
                     winner_name = codebook_names[winner_idx_global]
-                    
+
                     generated_vectors.insert(0, x_hat)
-                    
+
                     if track_energy:
                         error_val = errors[best_idx_in_candidates]
                         state_mag = np.linalg.norm(current_state) # Current state (before step back)
                         prev_mag = np.linalg.norm(best_prev_state)
                         print(f"  Step {step+1}: FwdError={error_val:.6f}, Phoneme='{winner_name}', s_t Mag={state_mag:.4f} -> s_t-1 Mag={prev_mag:.4f} (Snapped)")
-                    
+
                     current_state = best_prev_state
                     continue # Skip the standard block
-                
+
                 # ----------------------------------------------
-                
+
                 # Prepend to sequence (since we are going backwards in time)
                 generated_vectors.insert(0, x_hat)
-                
+
                 # 2. Rewind State (Exact Mathematical Inversion)
                 try:
                     # Clip state to avoid NaNs in arctanh (domain (-1, 1))
                     safe_state = np.clip(current_state, -0.999, 0.999)
                     pre_activation = np.arctanh(safe_state)
-                    
+
                     # Subtract input contribution and bias
                     # Since x_hat is now EXACT (snapped), this subtraction is PERFECT.
                     input_contribution = np.dot(x_hat, self.W_in)
                     residual = pre_activation - input_contribution - self.bias
-                    
+
                     # Calculate Tension (Energy) BEFORE rewind
                     if track_energy:
                         tension = np.linalg.norm(residual)
                         state_mag = np.linalg.norm(current_state)
                         print(f"  Step {step+1}: Tension={tension:.4f}, StateMag={state_mag:.4f}")
-                    
+
                     # Recover previous state using Exact Mathematical Inversion
                     prev_state = np.dot(residual, self.W_res_inv)
-                    
+
                     # Update for next iteration
                     current_state = prev_state
-                
+
                 except Exception as e:
                     # Fallback if math blows up (can happen with random weights)
                     if track_energy:
                         print(f"  Step {step+1}: 💥 Singular/Math Error: {e}")
                     # Just decay
                     current_state = current_state * 0.9
-            
+
         return np.array(generated_vectors)
 
     def process_batch(self, frequency_paths_batch: list) -> np.ndarray:
         """
         Vectorized forward pass for a batch of FrequencyPaths.
         Much faster than looping encode_path.
-        
+
         Args:
             frequency_paths_batch: List[FrequencyPath]
-            
+
         Returns:
             np.ndarray: Batch of final resonance vectors (BatchSize, ResonanceDim)
         """
         batch_size = len(frequency_paths_batch)
         if batch_size == 0:
             return np.array([])
-            
+
         # 1. Pad sequences
         lengths = [len(p.vectors) for p in frequency_paths_batch]
         max_len = max(lengths) if lengths else 0
-        
+
         # Input Tensor: (Batch, Time, InputDim)
         inputs = np.zeros((batch_size, max_len, self.input_dim))
-        
+
         for i, path in enumerate(frequency_paths_batch):
             seq_len = len(path.vectors)
             if seq_len > 0:
                 inputs[i, :seq_len, :] = np.array(path.vectors)
-                
+
         # 2. Run Vectorized RNN
         # State: (Batch, ResonanceDim)
         current_states = np.zeros((batch_size, self.resonance_dim))
-        
+
         # Precompute Inputs: X @ W_in -> (Batch, Time, ResonanceDim)
         inputs_flat = inputs.reshape(-1, self.input_dim)
         input_projections_flat = np.dot(inputs_flat, self.W_in)
         input_projections = input_projections_flat.reshape(batch_size, max_len, self.resonance_dim)
-        
+
         for t in range(max_len):
             # Mask for sequences that have ended
             # (Batch, 1)
             active_mask = (np.array(lengths) > t)[:, np.newaxis]
-            
+
             # Update: s_t = tanh(input_proj + s_{t-1} @ W_res + bias)
             # (Batch, ResonanceDim)
             echo_signal = np.dot(current_states, self.W_res)
-            
+
             # Input signal for this step
             input_signal = input_projections[:, t, :]
-            
+
             next_state = np.tanh(input_signal + echo_signal + self.bias)
-            
+
             # Apply update only to active sequences
             current_states = np.where(active_mask, next_state, current_states)
-            
+
         return current_states
 
     def train_decoder_fast_denoising(self, path_generator_func, noise_level: float = 0.02, ridge_alpha: float = 0.1) -> float:
         """
         Fast 'One-Shot' Training using Denoising Autoencoder principles.
-        
-        Instead of iterative DAgger (slow simulation of drift), we inject 
+
+        Instead of iterative DAgger (slow simulation of drift), we inject
         theoretical noise into the states during a single pass.
         This forces the decoder to be robust to drift without needing to simulate it.
-        
+
         Args:
             path_generator_func: Generator yielding FrequencyPath batches.
             noise_level: Standard deviation of Gaussian noise to inject.
-            
+
         Returns:
             float: Final MSE (approximate)
         """
-        print(f"⚡ Starting Fast Denoising Training (One-Shot)...")
-        
+        print("⚡ Starting Fast Denoising Training (One-Shot)...")
+
         # Accumulators
         XTX = np.zeros((self.resonance_dim, self.resonance_dim))
         XTY = np.zeros((self.resonance_dim, self.input_dim))
-        
+
         total_samples = 0
         batch_gen = path_generator_func()
-        
+
         for batch_idx, batch_paths in enumerate(batch_gen):
             # 1. Vectorized Forward Pass (Get Clean Trajectories)
             lengths = [len(p.vectors) for p in batch_paths]
             max_len = max(lengths)
-            
+
             inputs = np.zeros((len(batch_paths), max_len, self.input_dim))
             for i, p in enumerate(batch_paths):
                 inputs[i, :len(p.vectors), :] = p.vectors
-            
+
             # Projections
             inp_proj = np.dot(inputs.reshape(-1, self.input_dim), self.W_in).reshape(len(batch_paths), max_len, self.resonance_dim)
-            
+
             curr_s = np.zeros((len(batch_paths), self.resonance_dim))
-            
+
             batch_states = []
             batch_targets = []
-            
+
             for t in range(max_len):
                 active = (np.array(lengths) > t)
-                
+
                 # Evolve State (Clean Physics)
                 curr_s = np.tanh(inp_proj[:, t] + curr_s @ self.W_res + self.bias)
-                
+
                 valid_indices = np.where(active)[0]
                 if len(valid_indices) > 0:
                     batch_states.append(curr_s[valid_indices])
                     batch_targets.append(inputs[valid_indices, t, :])
-            
-            if not batch_states: continue
-            
+
+            if not batch_states:
+                continue
+
             # 2. Inject Noise (Simulate Drift)
             X_clean = np.vstack(batch_states)
             Y_clean = np.vstack(batch_targets)
-            
+
             # Noise injection: Robustify the "Readout"
             noise = np.random.normal(0, noise_level, X_clean.shape)
             X_noisy = X_clean + noise
-            
+
             # Target Transform
             Y_target = np.arctanh(np.clip(Y_clean, -0.999, 0.999))
-            
+
             # Linearize Inputs (arctanh)
             # Consistent with Incremental Training for Holy Grail Reversibility
             safe_X = np.clip(X_noisy, -1.0 + 1e-15, 1.0 - 1e-15)
             X_linearized = np.arctanh(safe_X)
-            
+
             # 3. Accumulate
             XTX += np.dot(X_linearized.T, X_linearized)
             XTY += np.dot(X_linearized.T, Y_target)
-            
+
             total_samples += X_clean.shape[0]
-            
+
             if batch_idx % 10 == 0:
                 print(f"  Batch {batch_idx}: Processed {total_samples} samples...")
-        
+
         # 4. Solve (Once)
         print(f"  Solving Linear System for {total_samples} samples...")
         reg = ridge_alpha * np.eye(self.resonance_dim)
@@ -1379,15 +1381,15 @@ class ResonancePathEncoder:
         except np.linalg.LinAlgError:
             print("  ⚠️ Matrix Singular. Using pseudo-inverse.")
             self.W_out = np.dot(np.linalg.pinv(XTX + reg), XTY)
-            
+
         # Calculate MSE for Fast Denoising
         # Error = ||XW - Y||^2 / N
         # We need YTY (Sum of squared targets) which we didn't accumulate.
         # Approximation: Just re-run a small batch or skip exact MSE for this fast phase.
-        # But we can calculate it if we tracked YTY. 
+        # But we can calculate it if we tracked YTY.
         # For now, let's just return 0.0 or implement YTY tracking if needed.
         # Let's add YTY tracking to fast_denoising as well for consistency.
-        
+
         print("⚡ Training Complete.")
         return 0.0
 
@@ -1396,7 +1398,7 @@ class ResonancePathEncoder:
         Memory-efficient Iterative Training for massive datasets.
         Uses Batched Ridge Regression (Accumulating X.T@X and X.T@Y).
         Now with NOISE INJECTION (Denoising) to improve robustness (DAgger-lite).
-        
+
         Args:
             path_generator_func: A function that returns a generator yielding batches of FrequencyPaths.
             iterations: Number of DAgger cycles.
@@ -1404,108 +1406,109 @@ class ResonancePathEncoder:
         """
         print(f"🔄 Starting Incremental Training ({iterations} cycles) with Noise={noise_level}...")
         previous_mse = float('inf')
-        
+
         for cycle in range(iterations):
             print(f"  Cycle {cycle+1}/{iterations}...")
-            
+
             # Initialize Accumulators for Ridge Regression
             # A = X.T @ X (ResonanceDim, ResonanceDim)
             # B = X.T @ Y (ResonanceDim, InputDim)
             XTX = np.zeros((self.resonance_dim, self.resonance_dim))
             XTY = np.zeros((self.resonance_dim, self.input_dim))
             YTY = 0.0 # Accumulator for sum of squared targets
-            
+
             total_samples = 0
-            
+
             # Restart generator for each cycle
-            batch_gen = path_generator_func() 
-            
+            batch_gen = path_generator_func()
+
             for batch_idx, batch_paths in enumerate(batch_gen):
                 # --- Vectorized Trajectory Collection (Mini-Batch) ---
                 lengths = [len(p.vectors) for p in batch_paths]
                 max_len = max(lengths)
-                
+
                 # Inputs: (Batch, Time, InputDim)
                 inputs = np.zeros((len(batch_paths), max_len, self.input_dim))
                 for i, p in enumerate(batch_paths):
-                    l = len(p.vectors)
-                    inputs[i, :l, :] = p.vectors
-                
+                    seq_len = len(p.vectors)
+                    inputs[i, :seq_len, :] = p.vectors
+
                 # Input Proj
                 inp_proj = np.dot(inputs.reshape(-1, self.input_dim), self.W_in).reshape(len(batch_paths), max_len, self.resonance_dim)
-                
+
                 curr_s = np.zeros((len(batch_paths), self.resonance_dim))
-                
+
                 batch_states = []
                 batch_targets = []
-                
+
                 for t in range(max_len):
                     active = (np.array(lengths) > t)
-                    
+
                     # Forward
                     curr_s = np.tanh(inp_proj[:, t] + curr_s @ self.W_res + self.bias)
-                    
+
                     # Collect valid states
                     valid_indices = np.where(active)[0]
                     if len(valid_indices) > 0:
                         batch_states.append(curr_s[valid_indices])
                         batch_targets.append(inputs[valid_indices, t, :])
-                        
+
                 # Stack
-                if not batch_states: continue
-                
+            if not batch_states:
+                continue
+
                 X_batch = np.vstack(batch_states)
                 Y_batch = np.vstack(batch_targets)
-                
+
                 # Target transform (inverse tanh)
                 Y_batch = np.arctanh(np.clip(Y_batch, -0.999, 0.999))
-                
+
                 # Apply Noise Injection (Denoising)
                 if noise_level > 0:
                     noise = np.random.normal(0, noise_level, X_batch.shape)
                     X_batch = X_batch + noise
-                
+
                 # Linearize Inputs (arctanh) for Holy Grail Reversibility
                 # This aligns the Readout space with the Generative space (Linear -> Linear)
                 safe_X = np.clip(X_batch, -1.0 + 1e-15, 1.0 - 1e-15)
                 X_linearized = np.arctanh(safe_X)
-                
+
                 # Accumulate
                 XTX += np.dot(X_linearized.T, X_linearized)
                 XTY += np.dot(X_linearized.T, Y_batch)
                 YTY += np.sum(Y_batch**2)
-                
+
                 total_samples += X_batch.shape[0]
-                
+
                 if batch_idx % 10 == 0:
                     print(f"    Batch {batch_idx}: Processed {total_samples} states...")
-                    
+
             # Solve Ridge for this cycle
             # W_out = (XTX + alpha*I)^-1 @ XTY
             reg = ridge_alpha * np.eye(self.resonance_dim)
             try:
                 self.W_out = np.linalg.solve(XTX + reg, XTY)
-                
+
                 # Calculate Energy (MSE)
                 # MSE = (tr(W.T @ XTX @ W) - 2 * tr(W.T @ XTY) + YTY) / N
                 term1 = np.trace(self.W_out.T @ XTX @ self.W_out)
                 term2 = 2 * np.trace(self.W_out.T @ XTY)
                 term3 = YTY
-                
+
                 mse = (term1 - term2 + term3) / total_samples
-                
+
                 print(f"  Cycle {cycle+1} Complete. Weights Updated. (Samples: {total_samples})")
                 print(f"    Energy (MSE): {mse:.8f}")
-                
+
                 if mse < previous_mse:
                     print("    📉 Energy Descent Detected (Thinking Signal Active)")
                 elif mse > previous_mse:
                     print("    📈 Energy Increase (Divergence/New Data)")
                 else:
                     print("    ➡️ Energy Stable")
-                    
+
                 previous_mse = mse
-                
+
             except np.linalg.LinAlgError:
                 print("  ⚠️ Matrix Singular. Using pseudo-inverse.")
                 self.W_out = np.dot(np.linalg.pinv(XTX + reg), XTY)
@@ -1516,34 +1519,34 @@ class ResonancePathEncoder:
     def get_resonance_state(self, frequency_path: FrequencyPath) -> ResonanceState:
         """
         Generate a complete ResonanceState object with metadata and theoretical metrics.
-        
+
         Args:
             frequency_path: The input frequency path.
-            
+
         Returns:
             ResonanceState: Fully computed state ready for the Reasoning Engine.
         """
         # 1. Encode the path
         resonance_vector = self.encode_path(frequency_path)
-        
+
         # 2. Calculate Theoretical Metrics
         # ρ (rho): Semantic Density - how 'pure' or 'strong' is the signal?
         rho = URCMTheory.calculate_rho(resonance_vector)
-        
+
         # χ (chi): Transformation Cost - "Manifold distance" from zero/neutral state
         # In this context, we can define chi as the energy required to maintain this state.
         # Simple approximation: Norm of the vector.
         chi = np.linalg.norm(resonance_vector)
-        
+
         # μ (mu): Resonance/Stability = rho / chi
         mu = URCMTheory.compute_mu(rho, chi)
-        
+
         # Stability Score: A higher-level metric, can be derived from mu and smoothness
         stability = mu * (1.0 + frequency_path.smoothness_score)
-        
+
         # Phase: Initial phase is 0, will be modulated by OscillatoryGating later
         phase = 0.0
-        
+
         return ResonanceState(
             resonance_vector=resonance_vector,
             mu_value=mu,

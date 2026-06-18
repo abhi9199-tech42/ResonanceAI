@@ -1,8 +1,13 @@
 """
 ResonanceAI CLI — hallucination detection and QA via phoneme resonance.
 """
-import argparse, json, sys, os
+import argparse
+import json
+import os
+import sys
+
 import numpy as np
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -48,7 +53,7 @@ def cmd_benchmark(args):
     from urcm.core.system import URCMSystem
     try:
         from sentence_transformers import SentenceTransformer, util
-        from sklearn.metrics import roc_auc_score, average_precision_score
+        from sklearn.metrics import average_precision_score, roc_auc_score
     except ImportError as e:
         print(f"Missing optional dependency: {e}")
         print("Install with: pip install resonanceai[benchmark]")

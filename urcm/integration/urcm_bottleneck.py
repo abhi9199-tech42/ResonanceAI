@@ -13,10 +13,11 @@ Architecture:
         → mu_score  → [B]   (hallucination risk: low μ = risky)
 """
 
+from typing import Optional, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-from typing import Tuple, Optional
 
 from urcm.core.theory import URCMTheory
 

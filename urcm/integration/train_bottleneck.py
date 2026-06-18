@@ -1,4 +1,4 @@
-"""
+r"""
 Train the URCM bottleneck to distinguish factual from hallucinated outputs.
 
 Uses a small labeled dataset of (prompt, response, label) pairs extracted
@@ -11,13 +11,14 @@ Run:
     venv_torch\Scripts\python.exe -m urcm.integration.train_bottleneck
 """
 
+import os
+import sys
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
-import os
-import sys
-from transformers import GPT2Tokenizer, GPT2LMHeadModel
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -112,7 +113,7 @@ def train(epochs: int = 200, lr: float = 1e-3, device: str = "cpu"):
 
     # Prepare data
     texts  = [p + " " + r for p, r, _ in TRAINING_DATA]
-    labels = torch.tensor([l for _, _, l in TRAINING_DATA], dtype=torch.float32).to(device)
+    labels = torch.tensor([lbl for _, _, lbl in TRAINING_DATA], dtype=torch.float32).to(device)
 
     print("Extracting hidden states from GPT-2...")
     hidden, mask = get_hidden_states(lm_model, tokenizer, texts, device)

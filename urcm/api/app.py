@@ -8,11 +8,11 @@ Endpoints:
   GET  /health    — Health check
   GET  /version   — Version info
 """
+import logging
 import os
 import time
-import logging
-from typing import List, Optional
 from contextlib import asynccontextmanager
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field

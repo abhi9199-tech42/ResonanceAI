@@ -1,27 +1,30 @@
+from typing import List, Optional, Tuple
+
 import numpy as np
-from typing import Tuple, List, Optional
+
 from .resonance_encoder import ResonancePathEncoder
+
 
 class GeometricMemory:
     """
     Implements Bounded Memory Deposition (One-Shot Learning) for URCM.
-    
+
     Instead of iterative Gradient Descent (Backprop), this module directly
     'deposits' attractor basins into the resonance weight matrix (W_res).
-    
+
     Theory:
     W_new = W_old - (W_old * u - v) * u.T / |u|^2
     Where u = input state, v = target next state.
     This is a rank-1 update that enforces W * u = v immediately.
     """
-    
+
     def __init__(self, resonance_dim: int, capacity_factor: float = 0.5):
         self.resonance_dim = resonance_dim
         # Capacity limit based on matrix rank and spectral properties
         # Ideally N * 0.14 for Hopfield, but higher for Resonance due to non-linearity
         self.capacity_limit = int(resonance_dim * capacity_factor)
         self.deposited_count = 0
-        
+
     def deposit_attractor(self,
                          W_res: np.ndarray,
                          state_vector: np.ndarray,
@@ -111,31 +114,31 @@ class GeometricMemory:
 
         return W
 
-    def deposit_sequence(self, 
-                        W_res: np.ndarray, 
+    def deposit_sequence(self,
+                        W_res: np.ndarray,
                         trajectory: List[np.ndarray],
                         broaden: bool = True) -> np.ndarray:
         """
         Deposits a sequence of states as a flow channel.
         s1 -> s2 -> s3 -> ... -> s_final -> s_final
-        
+
         Args:
-            broaden: If True, injects noise around the path to create 
+            broaden: If True, injects noise around the path to create
                      a "Funnel" (Attractor Basin), improving stability.
         """
         W_curr = W_res.copy()
-        
+
         # Basin Broadening Parameters
         noise_samples = 2
         noise_scale = 0.05
-        
+
         for i in range(len(trajectory) - 1):
             curr = trajectory[i]
             nxt = trajectory[i+1]
-            
+
             # 1. Deposit Core Path
             W_curr = self.deposit_attractor(W_curr, curr, nxt)
-            
+
             # 2. Deposit Funnel (Basin)
             if broaden:
                 for _ in range(noise_samples):
@@ -144,13 +147,13 @@ class GeometricMemory:
                     noisy_curr = curr + noise
                     # Normalize to keep on hypersphere
                     noisy_curr = noisy_curr / np.linalg.norm(noisy_curr) * np.linalg.norm(curr)
-                    
+
                     W_curr = self.deposit_attractor(W_curr, noisy_curr, nxt)
-            
+
         # Make the last state a fixed point attractor
         last = trajectory[-1]
         W_curr = self.deposit_attractor(W_curr, last, last)
-        
+
         # Broaden the fixed point too
         if broaden:
              for _ in range(noise_samples):
@@ -158,7 +161,7 @@ class GeometricMemory:
                 noisy_last = last + noise
                 noisy_last = noisy_last / np.linalg.norm(noisy_last) * np.linalg.norm(last)
                 W_curr = self.deposit_attractor(W_curr, noisy_last, last)
-        
+
         return W_curr
 
     def check_capacity(self) -> float:

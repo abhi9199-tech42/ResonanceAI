@@ -1,13 +1,15 @@
-import sys
 import os
-import numpy as np
+import sys
 import time
+
+import numpy as np
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from urcm.core.reasoning import ReasoningEngine
 from urcm.core.sanskrit_bridge import SanskritBridge
+
 
 def train_from_file(file_path: str, clean_slate: bool = False):
     """
@@ -18,22 +20,22 @@ def train_from_file(file_path: str, clean_slate: bool = False):
         print(f"❌ File not found: {file_path}")
         return
 
-    print(f"🚀 Initializing Massive Training Module...")
+    print("🚀 Initializing Massive Training Module...")
     print(f"📂 Source: {file_path}")
-    
+
     # Initialize Engine (Auto-creates 1024-dim brain if missing)
     engine = ReasoningEngine()
-    
+
     if clean_slate:
         print("🧹 Wiping W_res to Zero for Tabula Rasa learning...")
         engine.hierarchy.layer2.W_res = np.zeros((engine.l2_dim, engine.l2_dim))
     else:
         print("🔄 Preserving existing W_res weights.")
-    
+
     bridge = SanskritBridge()
-    
+
     print(f"🧠 Brain State: {engine.l2_dim} dimensions (Capacity: ~1M Concepts)")
-    
+
     # Read File
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -46,7 +48,7 @@ def train_from_file(file_path: str, clean_slate: bool = False):
     # Split into sentences (simple period split)
     sentences = [s.strip() for s in text.replace('!', '.').replace('?', '.').split('.') if s.strip()]
     print(f"📚 Corpus Size: {len(sentences)} sentences.")
-    
+
     # Auto-Epoch for small datasets
     epochs = 10 # Increased for better stability
     lr = 0.1
@@ -56,18 +58,18 @@ def train_from_file(file_path: str, clean_slate: bool = False):
         print(f"⚠️ Small corpus detected. Boosting to {epochs} epochs and LR={lr}.")
     else:
         print(f"🔄 Standard Training: {epochs} epochs.")
-    
+
     start_time = time.time()
     last_save_time = start_time
     total_updates = 0
     new_concepts = 0
-    
+
     # Stop Words for Skip-Gram
     STOP_WORDS = set(['is', 'a', 'the', 'an', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'has', 'are'])
 
     for epoch in range(epochs):
         epoch_start_time = time.time() # Reset time per epoch for correct rate
-        
+
         # ---------------------------------------------------------
         # Phase Control
         # Phase 1: Embedding (Geometry) - First 50% of epochs
@@ -76,15 +78,15 @@ def train_from_file(file_path: str, clean_slate: bool = False):
         phase = "EMBEDDING" if epoch < (epochs // 2) else "TRANSITION"
         if epochs > 1:
             print(f"🔄 Epoch {epoch+1}/{epochs} [{phase} PHASE]")
-            
+
         for i, sent in enumerate(sentences):
             # Tokenize (Simple space split, remove punctuation)
             clean_sent = "".join([c if c.isalnum() or c.isspace() else "" for c in sent])
             words = [w.lower() for w in clean_sent.split() if w]
-            
+
             if len(words) < 2:
                 continue
-                
+
             # ---------------------------------------------------------
             # 1. Ensure Concepts Exist (Hebbian Growth)
             # ---------------------------------------------------------
@@ -104,39 +106,39 @@ def train_from_file(file_path: str, clean_slate: bool = False):
             # ---------------------------------------------------------
             # Look ahead window size 4 to skip "is a" and hit "detective"
             WINDOW_SIZE = 4
-            
+
             for j in range(len(words)):
                 w1 = words[j]
-                
+
                 # Iterate forward in window
                 for k in range(1, WINDOW_SIZE + 1):
                     if j + k >= len(words):
                         break
-                        
+
                     w2 = words[j+k]
-                    
+
                     # Distance decay factor (closer words = stronger link)
-                    dist_factor = 1.0 / k 
-                    
+                    dist_factor = 1.0 / k
+
                     # A. Transition Learning (Sequence) - ONLY IN PHASE 2
                     # STRICT RULE: Never train transition TO a stop word.
                     # This prevents "Doctor" -> "a" -> "hospital" chains.
                     # We want "Doctor" -> "Hospital".
                     is_immediate = (k == 1)
                     is_w2_content = (w2 not in STOP_WORDS)
-                    
+
                     if phase == "TRANSITION":
                         # Only learn transition if Target is CONTENT
                         if is_w2_content:
                             v1 = engine.concept_map[w1]
                             v2 = engine.concept_map[w2]
-                            
+
                             # Prevent Self-Loops: If vectors are too similar, don't learn transition
                             # This fixes "Sherlock" -> "Sherlock"
                             sim = np.dot(v1, v2)
-                            if sim < 0.99: 
+                            if sim < 0.99:
                                 # Boost LR significantly for clear content jumps
-                                current_lr = lr * dist_factor * 5.0 
+                                current_lr = lr * dist_factor * 5.0
                                 engine.learn_transition(v1, v2, learning_rate=current_lr)
                                 total_updates += 1
 
@@ -145,16 +147,16 @@ def train_from_file(file_path: str, clean_slate: bool = False):
                         if is_w2_content and w1 not in STOP_WORDS:
                             v1 = engine.concept_map[w1]
                             v2 = engine.concept_map[w2]
-                            
+
                             # Prevent Collapse: Only attract if not already identical
                             if np.dot(v1, v2) < 0.95:
                                 attraction_rate = 0.05 * dist_factor
                                 v1_new = v1 + attraction_rate * (v2 - v1)
                                 v2_new = v2 + attraction_rate * (v1 - v2)
-                                
+
                                 engine.concept_map[w1] = v1_new / np.linalg.norm(v1_new)
                                 engine.concept_map[w2] = v2_new / np.linalg.norm(v2_new)
-            
+
             # ---------------------------------------------------------
             # 4. Explicit Analogy Training - ONLY IN PHASE 1
             # ---------------------------------------------------------
@@ -168,17 +170,17 @@ def train_from_file(file_path: str, clean_slate: bool = False):
                         vb = engine.concept_map[wb]
                         vc = engine.concept_map[wc]
                         vd = engine.concept_map[wd]
-                        
+
                         # Target: D = C + (B - A)
                         # Error: (C + B - A) - D
                         target_d = vc + vb - va
-                        
+
                         # Nudge D towards target
                         analogy_lr = 0.2
                         vd_new = vd + analogy_lr * (target_d - vd)
                         vd_new = vd_new / np.linalg.norm(vd_new)
                         engine.concept_map[wd] = vd_new
-                        
+
                         if epoch == 0:
                             print(f"  ✨ Analogy Taught: {wa}:{wb} :: {wc}:{wd}")
 
@@ -223,7 +225,7 @@ def train_from_file(file_path: str, clean_slate: bool = False):
                 # Use carriage return for cleaner output
                 print(f"\r⚡ Processed {i+1}/{len(sentences)} sentences ({rate:.1f} sent/s) | New Concepts: {new_concepts}", end="")
                 sys.stdout.flush()
-                
+
             # Periodic Save (Time-based Checkpointing to prevent IO jam)
             # Save every 5 minutes (300 seconds) instead of every N lines
             current_time = time.time()
@@ -237,7 +239,7 @@ def train_from_file(file_path: str, clean_slate: bool = False):
     print("\n💾 Finalizing Brain State...")
     engine.save_brain()
     duration = time.time() - start_time
-    print(f"\n✅ TRAINING COMPLETE.")
+    print("\n✅ TRAINING COMPLETE.")
     print(f"⏱️  Duration: {duration:.2f}s")
     print(f"📈 Total Updates: {total_updates}")
     print(f"🧠 Vocabulary Size: {len(engine.concept_map)}")

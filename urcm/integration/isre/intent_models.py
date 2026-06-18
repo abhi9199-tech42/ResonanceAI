@@ -7,8 +7,10 @@ structures typically found in the ISRE system.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
 import numpy as np
+
 
 @dataclass
 class IntentNode:
@@ -21,11 +23,11 @@ class IntentNode:
     constraints: List[str] = field(default_factory=list)
     parent_id: Optional[str] = None
     children_ids: List[str] = field(default_factory=list)
-    
+
     # Metadata for resonance mapping
     keywords: List[str] = field(default_factory=list)
     preconditions: Dict[str, Any] = field(default_factory=dict)
-    
+
     def __post_init__(self):
         if not self.description:
             raise ValueError("Intent description cannot be empty")
@@ -39,10 +41,10 @@ class GoalHierarchy:
     """
     root_id: str
     nodes: Dict[str, IntentNode] = field(default_factory=dict)
-    
+
     def add_node(self, node: IntentNode):
         self.nodes[node.intent_id] = node
-        
+
     def get_children(self, node_id: str) -> List[IntentNode]:
         if node_id not in self.nodes:
             return []

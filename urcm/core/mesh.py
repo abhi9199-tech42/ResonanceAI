@@ -1,35 +1,38 @@
 
-import numpy as np
 import time
-from typing import List, Dict, Optional, Set
+from typing import Dict, List, Optional, Set
+
+import numpy as np
+
 from urcm.core.data_models import MeshSignal
+
 
 class MeshNode:
     """
     Represents a single node in the decentralized cognitive mesh.
-    
+
     A MeshNode encapsulates a local reasoning instance (abstracted here) and participates
     in the global resonance through privacy-preserving signal exchange.
     """
-    
+
     def __init__(self, node_id: str):
         self.node_id = node_id
         self.neighbors: List['MeshNode'] = []
-        
+
         # Local State
         self.current_mu: float = 0.0
         self.previous_mu: float = 0.0
         self.phase: float = np.random.uniform(0, 2*np.pi)
-        
+
         # Network Dynamics Parameters
         self.coupling_strength: float = 0.1
         self.learning_rate: float = 0.01
-        
+
         # Fault Tolerance & Status
         self.is_active: bool = True
         self.health_score: float = 1.0
         self.error_history: List[str] = []
-        
+
         # Security / Privacy
         self.trusted_neighbors: Set[str] = set()
 
@@ -70,9 +73,9 @@ class MeshNode:
         """
         if not self.is_active:
             return 0
-            
+
         delta_mu = self.current_mu - self.previous_mu
-        
+
         # Construct Privacy-Preserving Signal
         # Only contains scalar metrics, no semantic content.
         signal = MeshSignal(
@@ -82,7 +85,7 @@ class MeshNode:
             timestamp=time.time(),
             signal_type=signal_type
         )
-        
+
         sent_count = 0
         for neighbor in self.neighbors:
             try:
@@ -90,7 +93,7 @@ class MeshNode:
                 sent_count += 1
             except Exception as e:
                 self._log_error(f"Failed to send to {neighbor.node_id}: {e}")
-                
+
         return sent_count
 
     def receive_signal(self, signal: MeshSignal):
@@ -107,22 +110,22 @@ class MeshNode:
         # 2. Process Signal (Sync Dynamics)
         # We adjust our phase to align with neighbors who have positive resonance trends (high delta_mu)
         # Kuramoto-like adjustment: dTheta = K * weight * sin(theta_j - theta_i)
-        
-        # Weight depends on the sender's delta_mu. 
+
+        # Weight depends on the sender's delta_mu.
         # If neighbor is gaining insight (positive delta_mu), we listen more.
         # If neighbor is confused (negative delta_mu), we ignore or decouple.
         weight = max(0.0, signal.delta_mu) * self.coupling_strength
-        
+
         phase_diff = signal.phase_alignment - self.phase
         adjustment = weight * np.sin(phase_diff)
-        
+
         self.phase += adjustment
         self.phase %= (2 * np.pi)
-        
+
         # 3. Mu Synchronization (Optional)
         # We might boost our own exploration if neighbors are finding things
         # But we don't directly copy mu, as it must be earned locally.
-        
+
     def _validate_signal(self, signal: MeshSignal) -> bool:
         """
         Validates signal integrity and enforces security/privacy constraints.
@@ -139,16 +142,16 @@ class MeshNode:
             self._log_error(f"Signal from {signal.sender_id} has future timestamp")
             self.health_score -= 0.1
             return False
-            
+
         if signal.timestamp < current_time - 30.0: # Too old
             return False # Just ignore, don't penalize heavily
-            
+
         # Data Integrity
         if not np.isfinite(signal.delta_mu) or not np.isfinite(signal.phase_alignment):
             self._log_error(f"Signal from {signal.sender_id} contains invalid values")
             self.health_score -= 0.2
             return False
-            
+
         return True
 
     def _log_error(self, message: str):
@@ -163,10 +166,10 @@ class MeshNetwork:
     """
     def __init__(self):
         self.nodes: Dict[str, MeshNode] = {}
-        
+
     def add_node(self, node: MeshNode):
         self.nodes[node.node_id] = node
-        
+
     def create_fully_connected(self):
         """Connect all existing nodes to each other."""
         node_list = list(self.nodes.values())

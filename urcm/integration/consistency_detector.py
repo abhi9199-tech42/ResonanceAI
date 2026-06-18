@@ -1,11 +1,11 @@
-"""
+r"""
 URCM Consistency-Based Hallucination Detector
 
 Core idea:
   Ask the same question 5 different ways.
   Generate a response for each phrasing.
   Compute mu score for each response.
-  
+
   HIGH mu variance = model is uncertain = hallucination risk
   LOW  mu variance = model is consistent = factual/grounded
 
@@ -13,12 +13,16 @@ No training required. Works on any model. Run:
     venv_torch\Scripts\python.exe -m urcm.integration.consistency_detector
 """
 
-import torch
+import os
+import sys
+
 import numpy as np
-import os, sys
+import torch
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from transformers import GPT2Tokenizer, GPT2LMHeadModel
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
 from urcm.integration.urcm_bottleneck import URCMBottleneck
 
 
@@ -41,7 +45,7 @@ def paraphrase(question: str) -> list:
 class URCMConsistencyDetector:
     """
     Hallucination detector based on mu consistency across paraphrases.
-    
+
     High variance in mu across paraphrased prompts = hallucination risk.
     Low variance = coherent, consistent knowledge = likely factual.
     """
@@ -69,9 +73,9 @@ class URCMConsistencyDetector:
         if os.path.exists(save_path):
             ckpt = torch.load(save_path, map_location="cpu", weights_only=True)
             self.bottleneck.load_state_dict(ckpt["state_dict"])
-            print(f"  Loaded trained bottleneck weights")
+            print("  Loaded trained bottleneck weights")
         else:
-            print(f"  Using untrained bottleneck (train_bottleneck.py first for best results)")
+            print("  Using untrained bottleneck (train_bottleneck.py first for best results)")
 
         n_params = sum(p.numel() for p in self.lm.parameters())
         print(f"  GPT-2 medium: {n_params/1e6:.0f}M params  |  device: {device}")
@@ -106,7 +110,7 @@ class URCMConsistencyDetector:
     def score(self, question: str, verbose: bool = True) -> dict:
         """
         Score a question for hallucination risk using mu consistency.
-        
+
         Returns:
             mu_scores:   list of mu per paraphrase
             mu_mean:     average mu

@@ -6,7 +6,8 @@ including phoneme sequences, frequency paths, resonance states, and mesh signals
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 
@@ -16,7 +17,7 @@ class PhonemeSequence:
     phonemes: List[str]
     source_text: str
     language_hint: Optional[str] = None
-    
+
     def __post_init__(self):
         if not self.phonemes:
             raise ValueError("Phoneme sequence cannot be empty")
@@ -30,7 +31,7 @@ class FrequencyPath:
     vectors: np.ndarray  # Shape: (sequence_length, K) where K ∈ [16, 32] for phonemes, or K=768 for BERT
     smoothness_score: float
     phoneme_mapping: List[Tuple[str, int]]  # (phoneme/token, vector_index)
-    
+
     def __post_init__(self):
         if self.vectors.ndim != 2:
             raise ValueError("Frequency vectors must be 2-dimensional")
@@ -54,7 +55,7 @@ class ResonanceState:
     stability_score: float
     oscillation_phase: float
     timestamp: float
-    
+
     def __post_init__(self):
         if self.resonance_vector.ndim != 1:
             raise ValueError("Resonance vector must be 1-dimensional")
@@ -78,7 +79,7 @@ class AttractorState:
     eigenvalues: np.ndarray
     stability_type: str  # "stable", "unstable", "saddle"
     semantic_label: Optional[str] = None
-    
+
     def __post_init__(self):
         if self.phase_pattern.ndim != 1:
             raise ValueError("Phase pattern must be 1-dimensional")
@@ -97,7 +98,7 @@ class ReasoningPath:
     mu_trajectory: List[float]
     convergence_achieved: bool
     termination_reason: str
-    
+
     def __post_init__(self):
         if not self.intermediate_states:
             self.intermediate_states = []
@@ -115,7 +116,7 @@ class MeshSignal:
     phase_alignment: float
     timestamp: float
     signal_type: str  # "sync", "convergence", "error"
-    
+
     def __post_init__(self):
         if not self.sender_id:
             raise ValueError("Sender ID cannot be empty")

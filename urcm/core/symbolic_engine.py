@@ -1,11 +1,12 @@
-import math
-import sys
-import io
 import ast
-import operator
 import contextlib
+import io
+import math
+import operator
+import sys
 import threading
-from typing import Any, Dict, Optional, Tuple, List, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 
 class SafeMathVisitor(ast.NodeVisitor):
     """
@@ -15,8 +16,8 @@ class SafeMathVisitor(ast.NodeVisitor):
     def __init__(self, allowed_variables: Dict[str, Any]):
         self.allowed_variables = allowed_variables
         self.allowed_functions = {
-            'abs': abs, 'round': round, 'min': min, 'max': max, 
-            'sum': sum, 'len': len, 'float': float, 'int': int, 
+            'abs': abs, 'round': round, 'min': min, 'max': max,
+            'sum': sum, 'len': len, 'float': float, 'int': int,
             'str': str, 'bool': bool, 'list': list, 'dict': dict, 'set': set,
             'range': range, 'enumerate': enumerate, 'zip': zip,
             'sorted': sorted, 'reversed': reversed,
@@ -38,18 +39,18 @@ class SafeMathVisitor(ast.NodeVisitor):
                  pass # Safe math call
              else:
                  # Block all other attribute-based method calls for security
-                 raise SecurityError(f"Method calls on arbitrary objects are not allowed.")
+                 raise SecurityError("Method calls on arbitrary objects are not allowed.")
         self.generic_visit(node)
 
     def visit_Import(self, node):
         raise SecurityError("Import statements are not allowed.")
-        
+
     def visit_ImportFrom(self, node):
         raise SecurityError("Import statements are not allowed.")
-        
+
     def visit_FunctionDef(self, node):
         raise SecurityError("Defining functions is not allowed in simple evaluation.")
-        
+
     def visit_ClassDef(self, node):
         raise SecurityError("Defining classes is not allowed.")
 
@@ -59,14 +60,14 @@ class SecurityError(Exception):
 class SymbolicEngine:
     """
     Production-Grade Symbolic Engine (Calculator).
-    
+
     Features:
     - AST-based Safety (No 'eval' injection)
     - Persistent State (Variables)
     - Execution Timeouts
     - Safe Standard Library Access
     """
-    
+
     def __init__(self, timeout_seconds: float = 2.0):
         self.timeout_seconds = timeout_seconds
         self.state: Dict[str, Any] = {
@@ -74,28 +75,28 @@ class SymbolicEngine:
         }
         # Populate with safe builtins
         self.state.update({
-            'abs': abs, 'round': round, 'min': min, 'max': max, 
-            'sum': sum, 'len': len, 'float': float, 'int': int, 
+            'abs': abs, 'round': round, 'min': min, 'max': max,
+            'sum': sum, 'len': len, 'float': float, 'int': int,
             'str': str, 'bool': bool, 'list': list, 'dict': dict, 'set': set,
             'range': range, 'enumerate': enumerate, 'zip': zip,
             'sorted': sorted, 'reversed': reversed,
             'all': all, 'any': any,
             'True': True, 'False': False, 'None': None,
         })
-        
+
     def _execute_with_timeout(self, code_str: str, mode: str = "eval") -> Tuple[bool, Any, str]:
         """Runs code in a separate thread to enforce timeout."""
         result_container = {"success": False, "result": None, "error": None}
-        
+
         def target():
             try:
                 # 1. Parse AST
                 tree = ast.parse(code_str, mode=mode)
-                
+
                 # 2. Validate AST (Security Scan)
                 visitor = SafeMathVisitor(self.state)
                 visitor.visit(tree)
-                        
+
                 # 3. Execute
                 if mode == "eval":
                     # For expressions, we return the result
@@ -111,17 +112,17 @@ class SymbolicEngine:
                         exec(compiled, {"__builtins__": None}, self.state)
                     result_container["result"] = output_buffer.getvalue()
                     result_container["success"] = True
-                    
+
             except Exception as e:
                 result_container["error"] = str(e)
-                
+
         thread = threading.Thread(target=target, daemon=True)
         thread.start()
         thread.join(timeout=self.timeout_seconds)
-        
+
         if thread.is_alive():
             return False, None, f"Timeout: Execution exceeded {self.timeout_seconds}s."
-            
+
         if result_container["success"]:
             return True, result_container["result"], ""
         else:
@@ -148,7 +149,7 @@ class SymbolicEngine:
 
     def set_variable(self, name: str, value: Any):
         self.state[name] = value
-    
+
     def infer_next_in_sequence(self, seq: List[Union[int, float]]) -> Optional[float]:
         """
         Attempts simple pattern completion:

@@ -6,14 +6,15 @@ Privacy constraint (Requirement 5.2):
   Raw resonance vectors never leave the node.
 """
 
-import numpy as np
 import time
 from typing import Dict, List, Optional
 
+import numpy as np
+
 from urcm.core.data_models import ResonanceState
+from urcm.core.oscillatory_gating import OscillatoryGating
 from urcm.core.phoneme_mapper import PhonemeFrequencyPipeline
 from urcm.core.resonance_encoder import ResonancePathEncoder
-from urcm.core.oscillatory_gating import OscillatoryGating
 from urcm.core.theory import URCMTheory
 
 

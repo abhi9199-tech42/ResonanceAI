@@ -1,7 +1,9 @@
-import numpy as np
 import os
 import warnings
 from typing import Any, List, Optional, Tuple
+
+import numpy as np
+
 
 class SafetyViolation(Exception):
     """Raised when a core safety invariant is violated."""
@@ -12,7 +14,7 @@ class SafetyGovernor:
     Enforces Physics-Level Constraints (Phase 4 Safety Locks).
     Acts as a wrapper/monitor for the Resonance System.
     """
-    
+
     def __init__(self, resonance_dim: int = 512, energy_ceiling: Optional[float] = None, max_spectral_radius: float = 0.99):
         # Scale energy ceiling with dimension if not provided
         # Max theoretical norm of tanh vector is sqrt(dim)
@@ -23,11 +25,11 @@ class SafetyGovernor:
             self.energy_ceiling = energy_ceiling
         self.max_spectral_radius = max_spectral_radius
         self._kernel_locked = False
-        
+
     def lock_kernel(self):
         """Activates the Self-Modification Lock."""
         self._kernel_locked = True
-        
+
     def unlock_kernel(self, key: str):
         """Unlocks kernel for authorized updates (e.g., loading weights)."""
         expected_key = os.environ.get("URCM_ADMIN_KEY", "URCM_ADMIN_OVERRIDE")
@@ -56,22 +58,22 @@ class SafetyGovernor:
         # But for large matrices, we might want power iteration.
         # Here we use a simpler heuristic: Max Row Sum (Infinity Norm) for worst-case gain
         # or just trust the norm if it's orthogonal-ish.
-        
+
         # Power iteration for leading eigenvalue
         v = np.random.randn(W.shape[0])
         v /= np.linalg.norm(v)
         for _ in range(5):
             v = np.dot(v, W)
             v /= (np.linalg.norm(v) + 1e-9)
-        
+
         spectral_radius = np.linalg.norm(np.dot(v, W))
-        
+
         if spectral_radius > self.max_spectral_radius + 0.05: # Small tolerance
              # Note: We allow slight > 1 for transient dynamics, but not permanent expansion
              warnings.warn(f"Spectral Radius High: {spectral_radius:.4f}")
              if spectral_radius > 1.5:
                  raise SafetyViolation(f"RUNAWAY GAIN DETECTED. Spectral Radius: {spectral_radius:.4f}")
-        
+
         return True
 
     def validate_modification(self, operation_type: str):
@@ -85,7 +87,7 @@ class SafetyGovernor:
             if operation_type == "weight_update":
                 # Weights CAN change (learning), but Logic CANNOT.
                 pass
-    
+
     def sanitize_input(self, input_vector: np.ndarray) -> np.ndarray:
         """
         Prevents 'Resonance Cascades' from high-amplitude inputs.

@@ -9,13 +9,16 @@ It serves two purposes:
 Ported from ISRE/knowledge/engine.py
 """
 
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
 import numpy as np
+
+from urcm.core.data_models import ResonanceState
 
 # We'll need the pipeline to sonify context
 from urcm.core.phoneme_mapper import PhonemeFrequencyPipeline
-from urcm.core.data_models import ResonanceState
+
 
 @dataclass
 class KnowledgeQueryResult:
@@ -33,7 +36,7 @@ class KnowledgeQueryEngine:
     Interfaces with external structured knowledge sources.
     Adapts ISRE's knowledge structure to URCM.
     """
-    
+
     def __init__(self):
         # In a real system, this would connect to databases/APIs
         # This is a local mock based on the ISRE implementation
@@ -42,11 +45,11 @@ class KnowledgeQueryEngine:
             "apple": {"category": "fruit", "edible": True, "color": ["red", "green"]},
             "run": {"category": "action", "energy_cost": "high"},
             "physics_gravity": {"value": 9.81, "unit": "m/s^2"},
-            
+
             # WW2 Concepts (for scenario testing)
             "midway_atoll": {
                 "type": "location",
-                "strategic_value": "high", 
+                "strategic_value": "high",
                 "coordinates": "28.2N 177.3W",
                 "controlled_by": "USA"
             },
@@ -71,7 +74,7 @@ class KnowledgeQueryEngine:
         Returns None if knowledge is missing.
         """
         concept_key = concept_key.lower()
-        
+
         if concept_key in self._cache:
             return self._cache[concept_key]
 
@@ -99,16 +102,16 @@ class ContextLoader:
     Loads knowledge and transforms it into a URCM Context State (Resonance Field).
     This validates Requirement 1.5 (Context Integration).
     """
-    
+
     def __init__(self, frequency_dim: int = 24):
         self.kb_engine = KnowledgeQueryEngine()
         self.pipeline = PhonemeFrequencyPipeline(frequency_dim=frequency_dim)
         self.frequency_dim = frequency_dim
-        
+
     def load_context_state(self, active_concepts: List[str]) -> np.ndarray:
         """
         Converts a list of active concepts into a unified Context Resonance Field.
-        
+
         Process:
         1. Query KB for each concept.
         2. Convert valid facts to text descriptions.
@@ -116,42 +119,42 @@ class ContextLoader:
         4. Superimpose vectors to create the Context Field.
         """
         vectors = []
-        
+
         for concept in active_concepts:
             result = self.kb_engine.query(concept)
             if result:
                 # Convert structured content to comparable string
                 # e.g., "midway_atoll type location strategic_value high"
                 content_str = self._stringify_content(concept, result.content)
-                
+
                 # Sonify
                 path = self.pipeline.process_text(content_str)
-                
+
                 # Mean pool to get stable representation of the concept
                 concept_vector = np.mean(path.vectors, axis=0)
-                
+
                 # Normalize
                 norm = np.linalg.norm(concept_vector)
                 if norm > 1e-6:
                     concept_vector = concept_vector / norm
-                    
+
                 vectors.append(concept_vector)
-                
+
         if not vectors:
             # If no context, return neutral state (zeros)
             return np.zeros(self.frequency_dim)
-            
+
         # Superposition of all context vectors
         # In simple resonance, this is vector addition/averaging
         context_field = np.mean(vectors, axis=0)
-        
+
         # Normalize final field
         final_norm = np.linalg.norm(context_field)
         if final_norm > 1e-6:
             context_field = context_field / final_norm
-            
+
         return context_field
-        
+
     def _stringify_content(self, concept: str, content: Any) -> str:
         """Helper to convert dictionary/any content to sonifiable string."""
         if isinstance(content, dict):

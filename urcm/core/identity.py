@@ -13,7 +13,7 @@ IDENTITY_CONCEPTS = {
     "stop": "Halting dynamics.",
     "good": "Low energy state. Harmonic.",
     "bad": "High energy state. Dissonant.",
-    
+
     # Value System Axioms (Moral Compass)
     "clarity": "Low entropy. Clear distinct states.",
     "coherence": "Stable trajectories. Logical flow.",
