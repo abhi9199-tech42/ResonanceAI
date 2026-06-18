@@ -20,6 +20,9 @@ class RestrictedUnpickler(pickle.Unpickler):
     SAFE_CLASSES = {
         'builtins.range', 'builtins.slice', 'builtins.complex',
         'collections.OrderedDict', 'collections.defaultdict',
+        # Explicit fallback for numpy array reconstruction (used in pickle)
+        'numpy._core.multiarray._reconstruct',
+        'numpy.ndarray', 'numpy.dtype',
     }
 
     def find_class(self, module: str, name: str) -> Any:
