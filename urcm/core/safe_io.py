@@ -15,6 +15,7 @@ class RestrictedUnpickler(pickle.Unpickler):
     """
     SAFE_MODULES = {
         'builtins', 'numpy', 'numpy.core', 'numpy.core.multiarray',
+        'numpy._core', 'numpy._core.multiarray',
         'numpy.ma.core', 'numpy.random', 'collections',
     }
     SAFE_CLASSES = {
@@ -22,6 +23,7 @@ class RestrictedUnpickler(pickle.Unpickler):
         'numpy.dtype', 'numpy.ndarray', 'numpy.float32', 'numpy.float64',
         'numpy.int32', 'numpy.int64', 'numpy.bool_', 'numpy.str_',
         'numpy.bytes_', 'numpy.object_', 'numpy.ma.core.MaskedArray',
+        'numpy._core.multiarray._reconstruct',
         'collections.OrderedDict', 'collections.defaultdict',
     }
 
