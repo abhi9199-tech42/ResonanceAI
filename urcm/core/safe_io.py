@@ -14,16 +14,11 @@ class RestrictedUnpickler(pickle.Unpickler):
     Blocks execution of arbitrary code during deserialization.
     """
     SAFE_MODULES = {
-        'builtins', 'numpy', 'numpy.core', 'numpy.core.multiarray',
-        'numpy._core', 'numpy._core.multiarray',
-        'numpy.ma.core', 'numpy.random', 'collections',
+        'builtins', 'collections',
     }
+    SAFE_MODULE_PREFIXES = ('numpy.',)  # Allow all numpy submodules
     SAFE_CLASSES = {
         'builtins.range', 'builtins.slice', 'builtins.complex',
-        'numpy.dtype', 'numpy.ndarray', 'numpy.float32', 'numpy.float64',
-        'numpy.int32', 'numpy.int64', 'numpy.bool_', 'numpy.str_',
-        'numpy.bytes_', 'numpy.object_', 'numpy.ma.core.MaskedArray',
-        'numpy._core.multiarray._reconstruct',
         'collections.OrderedDict', 'collections.defaultdict',
     }
 
@@ -33,6 +28,10 @@ class RestrictedUnpickler(pickle.Unpickler):
             return super().find_class(module, name)
         if module in self.SAFE_MODULES:
             return super().find_class(module, name)
+        # Allow any numpy submodule (numpy, numpy.core, numpy._core, numpy._core.multiarray, etc.)
+        for prefix in self.SAFE_MODULE_PREFIXES:
+            if module.startswith(prefix):
+                return super().find_class(module, name)
         raise pickle.UnpicklingError(
             f"Blocked deserialization of {qualified}. "
             f"Only numpy arrays, dicts, and built-in types are allowed."
