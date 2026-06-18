@@ -33,6 +33,32 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-timeout hypothesis
+      - name: Generate brain file
+        run: |
+          python -c "
+import os
+import numpy as np
+import pickle
+
+brain_path = 'urcm_identity.pkl'
+l2_dim = 1024
+input_dim = 64
+basic_concepts = ['exist', 'change', 'order', 'chaos', 'self', 'other', 'good', 'bad']
+concept_map = {}
+for word in basic_concepts:
+    vec = np.random.randn(l2_dim)
+    vec = vec / np.linalg.norm(vec)
+    concept_map[word] = vec
+
+brain_data = {
+    'l2_W_res': np.random.randn(l2_dim, l2_dim) * (1.0 / np.sqrt(l2_dim)),
+    'l2_W_in': np.random.randn(l2_dim, input_dim) * (1.0 / np.sqrt(l2_dim)),
+    'concept_map': concept_map
+}
+with open(brain_path, 'wb') as f:
+    pickle.dump(brain_data, f)
+print(f'Generated {brain_path}')
+"
       - name: Run unit tests
         run: pytest tests/ -v --timeout=60 -x -k "not integration and not bert and not commonsenseqa and not medical and not legal and not cuad and not drugbank" --tb=short
         timeout-minutes: 15
