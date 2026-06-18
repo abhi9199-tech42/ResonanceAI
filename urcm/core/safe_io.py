@@ -15,13 +15,18 @@ class RestrictedUnpickler(pickle.Unpickler):
     """
     SAFE_MODULES = {
         'builtins', 'collections',
+        'numpy', 'numpy.core', 'numpy._core',
+        'numpy.core.multiarray', 'numpy._core.multiarray',
     }
-    SAFE_MODULE_PREFIXES = ('numpy.',)  # Allow all numpy submodules
+    SAFE_MODULE_PREFIXES = ('numpy.', 'numpy.core.', 'numpy._core.')  # Allow all numpy submodules
     SAFE_CLASSES = {
         'builtins.range', 'builtins.slice', 'builtins.complex',
         'collections.OrderedDict', 'collections.defaultdict',
         # Explicit fallback for numpy array reconstruction (used in pickle)
         'numpy._core.multiarray._reconstruct',
+        'numpy.core.multiarray._reconstruct',
+        'numpy._core.multiarray.scalar',
+        'numpy.core.multiarray.scalar',
         'numpy.ndarray', 'numpy.dtype',
     }
 
