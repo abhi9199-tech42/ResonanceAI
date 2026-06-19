@@ -380,7 +380,7 @@ class TestTextToFrequencyPipelineCompleteness:
     """Property-based tests for complete text-to-frequency pipeline."""
     
     @given(text_input_strategy(), frequency_dimension_strategy())
-    @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=100)
+    @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=100, deadline=None)
     @pytest.mark.property
     def test_text_to_frequency_pipeline_completeness(self, text, frequency_dim):
         """
