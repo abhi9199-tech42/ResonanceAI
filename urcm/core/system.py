@@ -224,6 +224,7 @@ class URCMSystem:
                 "mu_value": 0.0,
                 "rho": 0.0,
                 "chi": 1e18,
+                "raw_cosine": 0.0,
                 "nn_label": None,
                 "top_k_labels": [],
                 "num_memories": len(self.hippocampus) if hasattr(self, 'hippocampus') else 0,
@@ -237,6 +238,7 @@ class URCMSystem:
         if not self.hippocampus:
             return {
                 "confidence": 0.5, "mu_value": 0.0, "rho": 0.0, "chi": 1e18,
+                "raw_cosine": 0.0,
                 "nn_label": "no_memory", "top_k_labels": [], "num_memories": 0,
                 "warning": "No hippocampus entries loaded",
             }

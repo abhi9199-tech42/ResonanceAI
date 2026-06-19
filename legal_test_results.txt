@@ -3,7 +3,7 @@ Accuracy: 10.00%
 ------------------------------
 [WRONG] Context: The parties shall maintain the confidentiality of ...
    Q: What is the primary obligation of this clause?
-   Stored: Payment terms
+   Stored: Governing Law
    Target: Confidentiality
 
 [WRONG] Context: This Agreement shall be governed by and construed ...
@@ -16,9 +16,9 @@ Accuracy: 10.00%
    Stored: Immediate
    Target: 30 days
 
-[WRONG] Context: The Consultant shall be an independent contractor ...
+[CORRECT] Context: The Consultant shall be an independent contractor ...
    Q: How is the Consultant classified?
-   Stored: Legal Partner
+   Stored: Independent Contractor
    Target: Independent Contractor
 
 [WRONG] Context: Each party shall indemnify, defend, and hold harml...
@@ -43,11 +43,11 @@ Accuracy: 10.00%
 
 [WRONG] Context: Seller warrants that the Goods will be free from d...
    Q: What is the duration of the warranty?
-   Stored: Lifetime
+   Stored: Six months
    Target: One year
 
-[CORRECT] Context: Neither party shall be liable for failure to perfo...
+[WRONG] Context: Neither party shall be liable for failure to perfo...
    Q: Which clause handles extreme unforeseen events?
-   Stored: Force Majeure
+   Stored: Insurance
    Target: Force Majeure
 

@@ -134,13 +134,16 @@ def verify(req: VerifyRequest):
         raise HTTPException(503, "System not initialized")
     t0 = time.time()
     try:
-        result = _system.verify_qa(req.question, req.answer, choices=req.choices)
+        if req.choices:
+            result = _system.solve_qa_right_brain(req.question, req.choices)
+        else:
+            result = _system.verify_qa(req.question, req.answer)
     except Exception as e:
         logger.error(f"Verification failed: {e}")
         raise HTTPException(500, f"Verification failed: {e}")
     latency = (time.time() - t0) * 1000
     return VerifyResponse(
-        confidence=result["confidence"],
+        confidence=result.get("confidence", 0.0),
         winner=result.get("winner", ""),
         details=result.get("details", []),
         latency_ms=round(latency, 1),

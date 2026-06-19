@@ -1,8 +1,8 @@
 DrugBank Medical Test Results
-Accuracy: 10.00%
+Accuracy: 20.00%
 ------------------------------
-[WRONG] Q: What is the primary risk of combining Warfarin and Aspirin?
-   Stored: Reduced efficacy of aspirin
+[CORRECT] Q: What is the primary risk of combining Warfarin and Aspirin?
+   Stored: Increased bleeding risk
    Target: Increased bleeding risk
 
 [WRONG] Q: Mechanism of Action: How do Statins primarily work?
