@@ -1,5 +1,7 @@
 # ResonanceAI: Decision Brain for Autonomous Agents
 
+[![CI](https://github.com/abhi9199-tech42/ResonanceAI/actions/workflows/ci.yml/badge.svg)](https://github.com/abhi9199-tech42/ResonanceAI/actions/workflows/ci.yml)
+
 AI that knows when it doesn't know.  
 32MB model. CPU-only. No GPU. AUROC 1.0 on 62 household pairs.
 
