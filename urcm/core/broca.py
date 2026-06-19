@@ -93,7 +93,8 @@ class BrocaArea:
                 vec = self.system.encoder.get_resonance_state(fp).resonance_vector
                 self._index[word] = vec
             except Exception:
-                pass
+                import logging
+                logging.getLogger(__name__).warning("Failed to index word: %s", word)
         self._built = True
 
     def _cosine_sim(self, a: np.ndarray, b: np.ndarray) -> float:

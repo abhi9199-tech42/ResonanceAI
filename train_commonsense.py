@@ -9,10 +9,10 @@ deposits commonsense on top, then saves back.
 
 import numpy as np
 import os
-import pickle
 from urcm.core.phoneme_mapper import PhonemeFrequencyPipeline
 from urcm.core.resonance_encoder import ResonancePathEncoder
 from urcm.core.memory import GeometricMemory
+from urcm.core.safe_io import safe_load_pickle
 
 # ── 60 commonsense QA pairs ──────────────────────────────────────────────────
 # Format: (question, correct_answer, [wrong_answers])
@@ -108,8 +108,7 @@ def train_commonsense(resonance_dim=1024, cycles=CYCLES):
     # Start from existing weights if they exist
     hippocampus = []
     if os.path.exists(weights_path):
-        with open(weights_path, "rb") as f:
-            wdata = pickle.load(f)
+        wdata = safe_load_pickle(weights_path)
         if wdata["W_res"].shape == (resonance_dim, resonance_dim):
             rpenc.W_in   = wdata["W_in"]
             rpenc.W_res  = wdata["W_res"]

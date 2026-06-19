@@ -10,13 +10,13 @@ Three improvements:
 
 import numpy as np
 import os
-import pickle
 import time
 from typing import List, Tuple
 
 from urcm.core.phoneme_mapper import PhonemeFrequencyPipeline
 from urcm.core.resonance_encoder import ResonancePathEncoder
 from urcm.core.memory import GeometricMemory
+from urcm.core.safe_io import safe_load_pickle
 from urcm.core.theory import URCMTheory
 
 # ── Training pairs ────────────────────────────────────────────────────────────
@@ -181,8 +181,9 @@ def train_logistic_scorer(pipeline, rpenc, epochs=800, lr=0.05):
             for wrong in wrongs[:3]:
                 w_vec = encode(pipeline, rpenc, wrong)
                 X.append(_features(q_vec, w_vec)); y.append(0.0)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Skipping Q:%s — %s", question[:30], e)
 
     X = np.array(X, dtype=np.float64)
     y = np.array(y, dtype=np.float64)
@@ -220,8 +221,7 @@ def boost_and_score():
     rpenc    = ResonancePathEncoder(input_dim=24, resonance_dim=1024)
     mem      = GeometricMemory(resonance_dim=1024)
 
-    with open(wp, "rb") as f:
-        wdata = pickle.load(f)
+    wdata = safe_load_pickle(wp)
     rpenc.W_in  = wdata["W_in"]
     rpenc.W_res = wdata["W_res"]
     rpenc.W_out = wdata["W_out"]
@@ -302,8 +302,7 @@ def boost_and_score():
 def evaluate():
     root_dir = os.path.dirname(os.path.abspath(__file__))
     wp = os.path.join(root_dir, "urcm_weights.pkl")
-    with open(wp, "rb") as f:
-        wdata = pickle.load(f)
+    wdata = safe_load_pickle(wp)
 
     pipeline = PhonemeFrequencyPipeline(frequency_dim=24)
     rpenc    = ResonancePathEncoder(input_dim=24, resonance_dim=1024)

@@ -73,6 +73,8 @@ class MeshNode:
             vec,
             self._current_state if self._current_state is not None else vec
         )
+        if self._current_state is None:
+            chi = max(chi, 0.1)
         mu_raw = URCMTheory.compute_mu(rho, chi)
         mu     = mu_raw / (1.0 + abs(mu_raw))
 

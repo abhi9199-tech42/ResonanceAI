@@ -147,8 +147,9 @@ def main():
             if args.interval_save and updates % args.interval_save == 0:
                 try:
                     mem.save(str(ckpt_path))
-                except Exception:
-                    pass
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning("Checkpoint save failed: %s", e)
                 if args.benchmark:
                     elapsed_mid = max(1e-9, time.time() - t0)
                     print(json.dumps({"progress": {"updates": updates, "updates_per_sec": updates/elapsed_mid}}))
@@ -189,8 +190,9 @@ def main():
     ups = updates / elapsed
     try:
         mem.save(str(ckpt_path))
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Final save failed: %s", e)
     out = {
         "params": total_params,
         "dim": args.dim,

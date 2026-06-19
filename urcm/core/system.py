@@ -82,9 +82,9 @@ class URCMSystem:
             if os.path.exists(cache_path):
                 print(f"[URCM] Loading cached converted weights from {cache_path}")
                 encoder_pretrained = safe_load_pickle(cache_path)
-                encoder_pretrained.pop("qa_lr_w", None)
-                encoder_pretrained.pop("hippocampus", None)
-                encoder_pretrained.pop("metadata", None)
+                self._pretrained_qa_w = encoder_pretrained.pop("qa_lr_w", None)
+                self._pretrained_hippocampus = encoder_pretrained.pop("hippocampus", [])
+                self._pretrained_metadata = encoder_pretrained.pop("metadata", {})
             else:
                 print(f"[URCM] No cached weights found. Downloading {load_pretrained}...")
                 pretrained_all = download_and_convert(
@@ -834,11 +834,8 @@ class URCMSystem:
         u_d = self.encoder.get_resonance_state(p_d).resonance_vector
 
         # 3. Explicit Memory (Hippocampus)
-        # Store the DEFINITION vector pointing to the CONCEPT label.
-        # When we query, if the query matches the definition vector, we recall the concept.
         self.hippocampus.append((u_d, concept, {"type": "definition", "text": definition}))
 
-        # Also store keyword associations
         keywords = definition.lower().split()
         ignored = {"the", "a", "an", "is", "of", "for", "to", "in", "on", "at", "used", "eating"}
         kw_vectors = []
@@ -850,6 +847,9 @@ class URCMSystem:
             u_kw = self.encoder.get_resonance_state(p_kw).resonance_vector
             self.hippocampus.append((u_kw, concept, {"type": "keyword", "text": kw}))
             kw_vectors.append(u_kw)
+        # Invalidate stale centroid after hippocampus modification
+        if hasattr(self, '_cs_centroid'):
+            del self._cs_centroid
 
         # 4. Implicit Memory (Hebbian) — batched shock deposit
         W = self.encoder.W_res
@@ -1315,7 +1315,8 @@ class URCMSystem:
             if anchors_auto:
                 wsum = sum(a[2] for a in anchors_auto) + 1e-9
                 for v, _, w in anchors_auto:
-                    acc += w * (np.dot(s_c, v) / norm_c)
+                    v_norm = np.linalg.norm(v) + 1e-9
+                    acc += w * (np.dot(s_c, v) / (norm_c * v_norm))
                 align_ctx = acc / wsum
 
             # -------------------------------------------------------

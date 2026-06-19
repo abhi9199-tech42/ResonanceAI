@@ -437,7 +437,8 @@ class ReasoningEngine:
             Q, _ = np.linalg.qr(W)
             self.hierarchy.layer2.W_res = (1.0 - strength) * W + strength * Q
         except Exception:
-            pass
+            import logging
+            logging.getLogger(__name__).warning("reorthogonalize_W_res failed")
     def evaluate_analogies(self, triplets: List[Tuple[str, str, str, str]]) -> Dict[str, float]:
         if not triplets:
             return {"hit@1": 0.0, "avg_conf": 0.0}

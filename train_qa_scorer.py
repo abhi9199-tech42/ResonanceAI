@@ -103,8 +103,7 @@ def train_scorer(resonance_dim=1024, epochs=500, lr=0.1):
     rpenc    = ResonancePathEncoder(input_dim=24, resonance_dim=resonance_dim)
 
     if os.path.exists(wp):
-        with open(wp, "rb") as f:
-            wdata = pickle.load(f)
+        wdata = safe_load_pickle(wp)
         if wdata["W_res"].shape == (resonance_dim, resonance_dim):
             rpenc.W_in  = wdata["W_in"]
             rpenc.W_res = wdata["W_res"]
@@ -159,9 +158,7 @@ def train_scorer(resonance_dim=1024, epochs=500, lr=0.1):
     print(f"\nBest accuracy: {best_acc:.3f}")
     print(f"Raw weights: sim={w_raw[0]:.4f}  rho={w_raw[1]:.4f}  chi={w_raw[2]:.4f}")
 
-    # Save back into weights file
-    with open(wp, "rb") as f:
-        wdata = pickle.load(f)
+    wdata = safe_load_pickle(wp)
     wdata["qa_lr_w"] = w_raw.astype(np.float32)
     with open(wp, "wb") as f:
         pickle.dump(wdata, f)
@@ -172,9 +169,7 @@ def train_scorer(resonance_dim=1024, epochs=500, lr=0.1):
 def evaluate_scorer(resonance_dim=1024):
     root_dir = os.path.dirname(os.path.abspath(__file__))
     wp = os.path.join(root_dir, "urcm_weights.pkl")
-    with open(wp, "rb") as f:
-        wdata = pickle.load(f)
-
+    wdata = safe_load_pickle(wp)
     qa_w = wdata.get("qa_lr_w")
     if qa_w is None:
         print("No qa_lr_w found — run train first")

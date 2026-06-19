@@ -1,8 +1,8 @@
 """Full system health check — parameter count, stability, QA accuracy."""
 import numpy as np
-import pickle
 from urcm.core.phoneme_mapper import PhonemeFrequencyPipeline
 from urcm.core.resonance_encoder import ResonancePathEncoder
+from urcm.core.safe_io import safe_load_pickle
 from urcm.core.system import URCMSystem
 
 # ── 1. Parameter count ───────────────────────────────────────────────────────
@@ -23,8 +23,7 @@ print(f"  TOTAL                    = {total:>10,}")
 import os
 wp = "urcm_weights.pkl"
 size_mb = os.path.getsize(wp) / 1e6
-with open(wp, "rb") as f:
-    w = pickle.load(f)
+w = safe_load_pickle(wp)
 hippo = len(w.get("hippocampus", []))
 
 print()

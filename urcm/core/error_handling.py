@@ -131,7 +131,9 @@ class ErrorRecoverySystem:
                 neutral_vec = resized_vec
 
             return replace(state, resonance_vector=neutral_vec, stability_score=0.5, mu_value=0.1, rho_density=0.1, chi_cost=1.0)
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("_stabilize_resonance failed: %s", e)
             return None
 
     def _project_to_phoneme_region(self, state: ResonanceState) -> ResonanceState:

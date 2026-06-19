@@ -257,8 +257,9 @@ def train_qa_scorer(pipeline, rpenc, epochs=800, lr=0.05):
                 w_vec = encode(pipeline, rpenc, wrong)
                 X.append(_features(q_vec, w_vec))
                 y.append(0.0)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Skipping Q:%s — %s", question[:30], e)
 
     X = np.array(X, dtype=np.float64)
     y = np.array(y, dtype=np.float64)

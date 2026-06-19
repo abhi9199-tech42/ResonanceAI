@@ -475,5 +475,7 @@ class PhonemeFrequencyPipeline:
             frequency_path = self.process_text(text)
             from .validation import DataValidation
             return DataValidation.validate_frequency_path(frequency_path)
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("validate_transcription exception: %s", e)
             return False

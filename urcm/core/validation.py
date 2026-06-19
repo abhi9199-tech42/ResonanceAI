@@ -5,6 +5,7 @@ This module provides comprehensive validation for all core data models,
 ensuring they meet the system's mathematical and structural constraints.
 """
 
+import logging
 from typing import List, Tuple
 
 import numpy as np
@@ -17,6 +18,8 @@ from .data_models import (
     ReasoningPath,
     ResonanceState,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class DataValidation:
@@ -33,7 +36,8 @@ class DataValidation:
             if seq.language_hint is not None and not isinstance(seq.language_hint, str):
                 return False
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("validate_phoneme_sequence exception: %s", e)
             return False
 
     @staticmethod
@@ -72,7 +76,8 @@ class DataValidation:
                 # is a relative measure that depends on the specific use case
 
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("validate_frequency_path exception: %s", e)
             return False
 
     @staticmethod
@@ -147,7 +152,8 @@ class DataValidation:
                     return False
 
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("validate_attractor_state exception: %s", e)
             return False
 
     @staticmethod
@@ -186,7 +192,8 @@ class DataValidation:
                 return False
 
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("validate_reasoning_path exception: %s", e)
             return False
 
     @staticmethod
@@ -217,7 +224,8 @@ class DataValidation:
             # This is enforced by the data structure design itself
 
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("validate_mesh_signal exception: %s", e)
             return False
 
     @staticmethod
@@ -232,5 +240,6 @@ class DataValidation:
             if float(mu) <= 0:
                 return False
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("validate_mu_value exception: %s", e)
             return False
