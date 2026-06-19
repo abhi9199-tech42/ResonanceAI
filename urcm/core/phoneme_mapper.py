@@ -371,17 +371,25 @@ class TextToPhonemeConverter:
         # We need to process from left to right, matching longest phonemes first.
         # This is crucial for aspirated consonants (kh, gh) vs k+h.
 
+        # Pre-scan for IAST characters to detect Sanskrit mode
+        has_iast = any(c in 'āīūṛṝḷḹṅñṇṭḍḍhśṣḥṃ' for c in text)
+        # Use language_hint or auto-detect
+        is_sanskrit = has_iast or language_hint == 'sa'
+
         i = 0
         while i < len(text):
-            # Try 2-char match first (Sanskrit digraphs)
+            # Try 2-char match first
             if i + 1 < len(text):
                 chunk = text[i:i+2]
+                if not is_sanskrit and chunk in self.english_digraphs:
+                    phonemes.append(self.english_digraphs[chunk])
+                    i += 2
+                    continue
                 if chunk in ['ai', 'au', 'kh', 'gh', 'ch', 'jh', 'th', 'dh', 'ph', 'bh']:
                     phonemes.append(chunk)
                     i += 2
                     continue
-                # English digraphs
-                if chunk in self.english_digraphs:
+                if is_sanskrit and chunk in self.english_digraphs:
                     phonemes.append(self.english_digraphs[chunk])
                     i += 2
                     continue

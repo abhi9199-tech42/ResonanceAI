@@ -46,8 +46,9 @@ class MoEHopfieldMemory:
             z = self.V[i].T @ x
             y_hat = self.U[i] @ z
             e = y_hat - target
+            u_old = self.U[i].copy()
             self.U[i] -= (lr * a) * np.outer(e, z)
-            grad_z = self.U[i].T @ e
+            grad_z = u_old.T @ e
             self.V[i] -= (lr * a) * np.outer(x, grad_z)
         return idx, alphas
 

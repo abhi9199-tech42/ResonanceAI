@@ -851,20 +851,19 @@ class URCMSystem:
             self.hippocampus.append((u_kw, concept, {"type": "keyword", "text": kw}))
             kw_vectors.append(u_kw)
 
-        # 4. Implicit Memory (Hebbian) - Light touch
-        # We still do this to help generalization, but we don't rely on it fully.
+        # 4. Implicit Memory (Hebbian) — batched shock deposit
         W = self.encoder.W_res
-        for _ in range(50):
-             W = self.memory.deposit_attractor(W, u_c, u_d)
-             W = self.memory.deposit_attractor(W, u_d, u_c)
+        W = self.memory.shock_deposit(W, u_c, u_d, cycles=50)
+        W = self.memory.shock_deposit(W, u_d, u_c, cycles=50)
         for u_kw in kw_vectors:
-            for _ in range(20):
-                W = self.memory.deposit_attractor(W, u_kw, u_c)
+            W = self.memory.shock_deposit(W, u_kw, u_c, cycles=20)
         self.encoder.W_res = W
         try:
             self.encoder.W_res_inv = np.linalg.inv(W)
         except np.linalg.LinAlgError:
             self.encoder.W_res_inv = np.linalg.pinv(W)
+        if hasattr(self.encoder, 'invalidate_wave_cache'):
+            self.encoder.invalidate_wave_cache()
 
         return {
             "status": "learned",
@@ -1357,7 +1356,7 @@ class URCMSystem:
                             best_overlap = overlap
 
             if best_overlap > 0:
-                recall_boost = 5000.0 * best_overlap * (1.0 + align_ctx)
+                recall_boost = 5.0 * best_overlap * (1.0 + align_ctx)
 
             neg_pen = 0.0
             if align_q_raw < -0.1:
@@ -1383,8 +1382,7 @@ class URCMSystem:
                 if align_ctx > 0.3:
                     context_bias += 0.8
 
-            # Formula Update: Increase align_ctx and recall_boost multipliers
-            final_score = (1.2 * align_q) - (0.1 * abs(align_g)) + (2.5 * align_ctx) + (1.5 * recall_boost) + context_bias - (1.2 * neg_pen)
+            final_score = (1.2 * align_q) - (0.1 * abs(align_g)) + (2.5 * align_ctx) + (0.5 * recall_boost) + context_bias - (1.2 * neg_pen)
 
             scores.append(final_score)
             details.append({

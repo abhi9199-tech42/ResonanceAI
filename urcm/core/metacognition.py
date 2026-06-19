@@ -111,7 +111,7 @@ class MetacognitiveMonitor:
         norm_c = np.linalg.norm(current_state)
         norm_g = np.linalg.norm(goal_state)
 
-        if norm_c == 0 or norm_g == 0:
+        if norm_c < 1e-12 or norm_g < 1e-12:
             return 0.0
 
         return np.dot(current_state, goal_state) / (norm_c * norm_g)

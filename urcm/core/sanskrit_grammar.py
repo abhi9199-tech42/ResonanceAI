@@ -97,8 +97,11 @@ class SanskritGrammar:
             for word in trajectory[1:-1]:
                 structured_words.append(self.apply_vibhakti(word, 'object'))
             if len(trajectory) > 1:
-                action = trajectory[-1]
-                structured_words.append(action + "ti")
+                last = trajectory[-1]
+                if last.lower() in self.action_set:
+                    structured_words.append(last + "ti")
+                else:
+                    structured_words.append(self.apply_vibhakti(last, 'object'))
 
         # Join
         raw_sentence = " ".join(structured_words)

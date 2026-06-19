@@ -310,9 +310,15 @@ class WavePhysicsMerger:
         energy_a = coeffs_a ** 2
         energy_b = coeffs_b ** 2
 
-        # Soft competition (Boltzmann in wave domain)
-        total = energy_a + energy_b + 1e-12
-        prob_a = np.exp(energy_a / temperature) / (np.exp(energy_a / temperature) + np.exp(energy_b / temperature) + 1e-12)
+        # Soft competition (Boltzmann in wave domain) — with overflow protection
+        logit_a = energy_a / max(temperature, 1e-8)
+        logit_b = energy_b / max(temperature, 1e-8)
+        max_logit = np.maximum(logit_a, logit_b)
+        logit_a -= max_logit
+        logit_b -= max_logit
+        exp_a = np.exp(np.clip(logit_a, -500, 500))
+        exp_b = np.exp(np.clip(logit_b, -500, 500))
+        prob_a = exp_a / (exp_a + exp_b + 1e-12)
 
         # Winner-take-most reconstruction
         winning_coeffs = prob_a * coeffs_a + (1 - prob_a) * coeffs_b

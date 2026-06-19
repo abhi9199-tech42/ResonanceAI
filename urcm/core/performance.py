@@ -139,7 +139,7 @@ class OptimizedPhonemeSet:
         # Cache management
         if use_cache:
             if len(self._frequency_cache) >= self.max_cache_size:
-                # Simple LRU: remove first item
+                # FIFO eviction (dict insertion order)
                 self._frequency_cache.pop(next(iter(self._frequency_cache)))
             self._frequency_cache[phoneme_id] = vector
 

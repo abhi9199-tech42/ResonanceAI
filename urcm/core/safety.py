@@ -32,7 +32,9 @@ class SafetyGovernor:
 
     def unlock_kernel(self, key: str):
         """Unlocks kernel for authorized updates (e.g., loading weights)."""
-        expected_key = os.environ.get("URCM_ADMIN_KEY", "URCM_ADMIN_OVERRIDE")
+        expected_key = os.environ.get("URCM_ADMIN_KEY")
+        if expected_key is None:
+            raise SafetyViolation("URCM_ADMIN_KEY environment variable not set. Cannot unlock kernel.")
         if key == expected_key:
             self._kernel_locked = False
         else:

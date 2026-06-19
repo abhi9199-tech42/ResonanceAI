@@ -114,7 +114,7 @@ class ErrorRecoverySystem:
                  norm = np.linalg.norm(reconstructed)
                  if norm > 1e-8:
                      reconstructed = reconstructed / norm
-                 return replace(state, resonance_vector=reconstructed, stability_score=0.3, mu_value=0.05)
+                 return replace(state, resonance_vector=reconstructed, stability_score=0.3, mu_value=0.05, rho_density=0.05, chi_cost=1.0)
 
         # If we can't find an attractor, return None (or maybe a neutral phoneme 'a' vector?)
         # Let's return a neutral state based on phoneme 'a'
@@ -130,7 +130,7 @@ class ErrorRecoverySystem:
                 resized_vec[:d] = neutral_vec[:d]
                 neutral_vec = resized_vec
 
-            return replace(state, resonance_vector=neutral_vec, stability_score=0.5, mu_value=0.1)
+            return replace(state, resonance_vector=neutral_vec, stability_score=0.5, mu_value=0.1, rho_density=0.1, chi_cost=1.0)
         except Exception:
             return None
 
@@ -163,7 +163,11 @@ class ErrorRecoverySystem:
         # factor alpha = 0.5
         corrected_vec = 0.5 * current_vec + 0.5 * best_vec
 
-        return replace(state, resonance_vector=corrected_vec)
+        corrected_norm = np.linalg.norm(corrected_vec)
+        new_rho = float(corrected_norm)
+        new_chi = 1.0
+        new_mu = new_rho / (new_chi + 1e-9)
+        return replace(state, resonance_vector=corrected_vec, mu_value=new_mu, rho_density=new_rho, chi_cost=new_chi)
 
     def _log_error(self, error_type: str, message: str):
         self.error_log.append({

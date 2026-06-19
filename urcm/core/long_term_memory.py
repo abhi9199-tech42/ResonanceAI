@@ -89,7 +89,9 @@ class LongTermMemory:
         ids = []
         for r in rows:
             vec = safe_load_pickle_bytes(r[1])
-            if self.vector_dim is not None and vec is not None and vec.ndim == 1:
+            if vec is None or not hasattr(vec, 'ndim') or vec.ndim != 1:
+                continue
+            if self.vector_dim is not None:
                 if vec.shape[0] < self.vector_dim:
                     pad = self.vector_dim - vec.shape[0]
                     vec = np.pad(vec, (0, pad))

@@ -11,22 +11,19 @@ class MemoryMaintenance:
         s_clipped = np.minimum(s, max_sigma)
         return (u * s_clipped) @ vt
     def strengthen(self, W: np.ndarray, u: np.ndarray, v: np.ndarray, cycles: int = 400) -> np.ndarray:
-        Z = W
-        for _ in range(cycles):
-            Z = self.memory.deposit_attractor(Z, u, v)
-        return Z
+        return self.memory.shock_deposit(W, u, v, cycles=cycles)
     def weaken(self, W: np.ndarray, u: np.ndarray, v: np.ndarray, cycles: int = 600, alpha: float = 1.0) -> np.ndarray:
         Z = W
-        for _ in range(cycles):
-            norm_u_sq = float(np.dot(u, u))
-            if norm_u_sq < 1e-9:
-                return Z
-            t = np.clip(v, -0.95, 0.95)
-            lin_t = np.arctanh(t)
-            cur = u @ Z
-            e = lin_t - cur
-            Z = Z - alpha * np.outer(u, e) / norm_u_sq
-        return Z
+        norm_u_sq = float(np.dot(u, u))
+        if norm_u_sq < 1e-9:
+            return Z
+        u64 = u.astype(np.float64)
+        t = np.clip(v, -0.95, 0.95)
+        lin_t = np.arctanh(t).astype(np.float64)
+        cur = u64 @ Z.astype(np.float64)
+        e = lin_t - cur
+        update = -alpha * np.outer(u64, e) / norm_u_sq * float(cycles)
+        return np.clip(Z.astype(np.float64) + update, -5.0, 5.0).astype(W.dtype)
     def forget(self, W: np.ndarray, u: np.ndarray, cycles: int = 300) -> np.ndarray:
         Z = W
         zt = np.zeros_like(u)

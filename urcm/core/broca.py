@@ -131,10 +131,10 @@ class BrocaArea:
         state: np.ndarray      = resonance_vector.copy()
         result: List[str]      = []
 
+        safe_temp = max(float(temperature), 1e-8)
         for _ in range(length):
-            # One dynamics step (autonomous, no input)
             state = np.tanh(
-                np.dot(state, self.system.encoder.W_res) / temperature
+                np.dot(state, self.system.encoder.W_res) / safe_temp
             )
             state = self.system.gating.apply_gating(state, dt=0.1)
 

@@ -614,10 +614,11 @@ class ReasoningEngine:
         self.hierarchy.layer2.W_res += dW
 
         # Normalize to prevent explosion
-        # Optional: spectral radius check every N steps (expensive)
-        # Just simple weight decay or max norm
         max_val = 2.0
         self.hierarchy.layer2.W_res = np.clip(self.hierarchy.layer2.W_res, -max_val, max_val)
+        # Invalidate wave cache since W_res was modified in-place
+        if hasattr(self.hierarchy.layer2, 'invalidate_wave_cache'):
+            self.hierarchy.layer2.invalidate_wave_cache()
 
     def save_brain(self):
         """Persists the current weights and concepts to disk."""

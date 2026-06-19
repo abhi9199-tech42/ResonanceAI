@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-with open("README.md") as f:
+with open("README.md", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
@@ -10,7 +10,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Kriti",
-    license="Apache 2.0",
+    license="Apache-2.0",
     packages=find_packages(exclude=["tests", "tests.*"]),
     python_requires=">=3.8",
     install_requires=[
@@ -20,7 +20,7 @@ setup(
     extras_require={
         "bert": ["torch>=2.0.0", "transformers>=4.30.0"],
         "benchmark": ["sentence-transformers>=2.2.0", "scikit-learn>=0.24.0"],
-        "dev": ["pytest>=7.0.0", "hypothesis>=6.0.0"],
+        "dev": ["pytest>=7.0.0", "pytest-timeout>=2.0.0", "hypothesis>=6.0.0"],
         "all": ["torch>=2.0.0", "transformers>=4.30.0",
                 "sentence-transformers>=2.2.0", "scikit-learn>=0.24.0",
                 "pytest>=7.0.0"],

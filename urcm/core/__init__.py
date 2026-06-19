@@ -10,7 +10,8 @@ from .data_models import (
 )
 from .hierarchical_encoder import HierarchicalEncoder
 from .memory import GeometricMemory
-from .mesh import MeshNetwork, MeshNode
+from .mesh import MeshNetwork
+from .mesh_node import MeshNode
 from .performance import (
     CompressionMonitor,
     OptimizedPhonemeSet,

@@ -54,6 +54,13 @@ class WebSensor:
 
         return True
 
+    def _validate_redirect(self, redirect_url: str, original_url: str) -> bool:
+        """Validates redirect targets to prevent SSRF bypass."""
+        if not self._validate_url(redirect_url):
+            print(f"❌ WebSensor: Blocked redirect to {redirect_url} (SSRF prevention)")
+            return False
+        return True
+
     def fetch_page(self, url: str) -> Optional[str]:
         """Fetches and cleans text from a URL."""
         if not self._validate_url(url):
@@ -65,7 +72,10 @@ class WebSensor:
             headers = {
                 'User-Agent': 'ResonanceAI/0.2.0 (Research Bot)'
             }
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
+            # Validate final URL after redirects
+            if response.url != url and not self._validate_redirect(response.url, url):
+                return None
             if response.status_code != 200:
                 print(f"❌ Failed to fetch: Status {response.status_code}")
                 return None

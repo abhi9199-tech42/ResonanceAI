@@ -28,7 +28,7 @@ print("-" * 75)
 
 for label, text in test_cases:
     r = system.detect_hallucination(text)
-    print(f"{label:20s} {text[:38]:40s} {r['confidence']:.3f} {r.get('raw_cosine', 0):.3f}")
+    print(f"{label:20s} {text[:38]:40s} {r.get('confidence', 0):.3f} {r.get('raw_cosine', 0):.3f}")
 
 print("\nNote: BERT weights give richer resonance dynamics but same")
 print("fundamental behavior — scores are driven by phoneme pattern")

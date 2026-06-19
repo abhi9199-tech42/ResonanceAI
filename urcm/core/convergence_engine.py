@@ -190,8 +190,8 @@ class MuConvergenceEngine:
                         )
                         completed_paths.append(new_path)
                         logger.warning("PARADOX DETECTED")
-                        active_paths = []
-                        new_candidates = []
+                        active_paths.clear()
+                        new_candidates.clear()
                         break
 
                     # Calculate proper metrics relative to history

@@ -138,20 +138,13 @@ def train_commonsense(resonance_dim=1024, cycles=CYCLES):
         for _ in range(cycles):
             W = mem.deposit_attractor(W, u_q, u_correct)
 
-        # Deposit: answer word alone → question (bidirectional)
-        for _ in range(cycles // 2):
-            W = mem.deposit_attractor(W, u_correct, u_q)
+        W = mem.shock_deposit(W, u_correct, u_q, cycles=cycles // 2)
+        W = mem.shock_deposit(W, u_qa, u_correct, cycles=cycles // 2)
 
-        # Deposit: combined q+a phrase → correct (stronger signal)
-        for _ in range(cycles // 2):
-            W = mem.deposit_attractor(W, u_qa, u_correct)
-
-        # Repel wrong answers
-        t_wrong = -u_q  # push wrong answers away from question vector
+        t_wrong = -u_correct
         for wrong in wrongs:
             u_wrong = encode(pipeline, rpenc, f"{question} {wrong}")
-            for _ in range(cycles // 3):
-                W = mem.deposit_attractor(W, u_wrong, t_wrong)
+            W = mem.shock_deposit(W, u_wrong, t_wrong, cycles=cycles // 3)
 
         # Add to hippocampus (explicit fast memory)
         hippocampus.append((u_correct, correct, {"type": "commonsense_answer", "text": correct}))
